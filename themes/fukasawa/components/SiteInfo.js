@@ -39,12 +39,7 @@ function SiteInfo({ title }) {
         </span>
         <br />
         <span className='text-xs font-serif'>
-          Powered by
-          <a
-            href='https://github.com/tangly1024/NotionNext'
-            className='underline'>
-            NotionNext {siteConfig('VERSION')}
-          </a>
+          多多留言给博主动力.
         </span>
         <br />
       </span>

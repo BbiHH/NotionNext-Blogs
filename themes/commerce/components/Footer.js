@@ -193,12 +193,7 @@ const Footer = props => {
 
             {/* 技术支持 */}
             <div className='text-xs text-light-500 dark:text-gray-700'>
-              Powered by{' '}
-              <a
-                href='https://github.com/tangly1024/NotionNext'
-                className='dark:text-gray-300'>
-                NotionNext {siteConfig('VERSION')}
-              </a>
+              多多留言给博主动力.
               .
             </div>
 

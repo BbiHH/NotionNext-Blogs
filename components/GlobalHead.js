@@ -103,6 +103,7 @@ const GlobalHead = props => {
         content='width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0'
       />
       <meta name="google-site-verification" content="JigqMqTs8uua2QG-pI-fcw6s_NuJ96Q5w3CD_QQxlnM" />
+      <meta name="baidu-site-verification" content="codeva-pHSlrsL2pb" />
       <meta name='robots' content='follow, index' />
       <meta charSet='UTF-8' />
       {SEO_GOOGLE_SITE_VERIFICATION && (

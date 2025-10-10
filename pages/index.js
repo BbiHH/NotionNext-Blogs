@@ -7,6 +7,7 @@ import { generateSitemapXml } from '@/lib/sitemap.xml'
 import { DynamicLayout } from '@/themes/theme'
 import { generateRedirectJson } from '@/lib/redirect'
 import { checkDataFromAlgolia } from '@/lib/plugins/algolia'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 /**
  * 首页布局

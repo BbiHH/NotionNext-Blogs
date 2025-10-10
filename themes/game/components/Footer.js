@@ -19,7 +19,6 @@ export const Footer = props => {
         <p>{siteConfig('DESCRIPTION')}</p>
 
         <span className='dark:text-gray-200 no-underline ml-4'>
-          Powered by
           <a
             className=' hover:underline'>
               多多留言给博主动力.

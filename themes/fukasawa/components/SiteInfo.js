@@ -39,7 +39,6 @@ function SiteInfo({ title }) {
         </span>
         <br />
         <span className='text-xs font-serif'>
-          Powered by
           <a
             className='underline'>
             多多留言给博主动力.

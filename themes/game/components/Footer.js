@@ -19,7 +19,13 @@ export const Footer = props => {
         <p>{siteConfig('DESCRIPTION')}</p>
 
         <span className='dark:text-gray-200 no-underline ml-4'>
-          多多留言给博主动力.
+          Powered by
+          <a
+            href='https://github.com/tangly1024/NotionNext'
+            className=' hover:underline'>
+            {' '}
+            NotionNext {siteConfig('VERSION')}{' '}
+          </a>
         </span>
       </div>
     </footer>

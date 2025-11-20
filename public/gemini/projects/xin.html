@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Psychology of Flow - 心流心理学</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f9fafb; /* Cool Gray 50 */
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* The Stage: Fixed Aspect Ratio 16:9, Scaled to Fit */
+        #stage-container {
+            width: 100%;
+            max-width: 2560px; /* 2K reference */
+            aspect-ratio: 16/9;
+            position: relative;
+            background: #FDFBF7; /* Warm Off-white */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        /* Canvas for Organic Background */
+        #flow-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.6;
+        }
+
+        /* Content Layer */
+        #content-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Graph Styles */
+        .axis-line {
+            stroke: #94a3b8;
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+        .axis-text {
+            fill: #64748b;
+            font-size: 1.2rem;
+            font-weight: 600;
+            opacity: 0; /* Hidden initially */
+            transition: opacity 1s ease;
+        }
+        .zone-text {
+            font-size: 2rem;
+            font-weight: 700;
+            opacity: 0;
+            transition: all 1s ease;
+            text-anchor: middle;
+        }
+        
+        /* The Particle */
+        #consciousness-particle {
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #38b2ac 0%, rgba(56, 178, 172, 0) 70%);
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 30px rgba(56, 178, 172, 0.6);
+            opacity: 0;
+            transition: top 1.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                        left 1.5s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.5s ease,
+                        box-shadow 0.5s ease,
+                        opacity 1s ease;
+            z-index: 20;
+        }
+        #consciousness-particle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Subtitles */
+        #subtitle-container {
+            position: absolute;
+            bottom: 8%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 50;
+            width: 80%;
+            backdrop-filter: blur(8px);
+            background: rgba(255, 255, 255, 0.7);
+            padding: 2rem;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            transition: transform 0.5s ease, opacity 0.5s ease;
+        }
+
+        .sub-en {
+            display: block;
+            font-size: 1.5rem;
+            color: #2d3748;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        .sub-cn {
+            display: block;
+            font-size: 1.25rem;
+            color: #718096;
+            font-weight: 400;
+        }
+
+        /* Progress Bar */
+        #progress-bar-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #38b2ac;
+            transition: width 0.1s linear;
+        }
+
+        /* Floating Concepts */
+        .floater {
+            position: absolute;
+            opacity: 0;
+            transition: opacity 1s ease, transform 2s ease;
+            font-weight: 700;
+            color: #319795;
+        }
+
+        /* Graph SVG Container */
+        #graph-svg {
+            width: 60%;
+            height: 60%;
+            overflow: visible;
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0; /* Initially hidden */
+            transition: opacity 1.5s ease;
+        }
+        
+        /* Animations for Graph Areas */
+        .zone-path {
+            transition: fill-opacity 1s ease;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="stage-container">
+        <!-- Background Animation -->
+        <canvas id="flow-canvas"></canvas>
+
+        <!-- Visualization Element: The Particle -->
+        <div id="consciousness-particle"></div>
+
+        <!-- Main Graph -->
+        <svg id="graph-svg" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet">
+            <!-- Gradients -->
+            <defs>
+                <linearGradient id="flowGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#38b2ac;stop-opacity:0.1" />
+                    <stop offset="100%" style="stop-color:#319795;stop-opacity:0.3" />
+                </linearGradient>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#cbd5e0" stroke-width="1" opacity="0.3"/>
+                </pattern>
+            </defs>
+
+            <!-- Grid Background -->
+            <rect width="1000" height="800" fill="url(#grid)" opacity="0" id="graph-grid" style="transition: opacity 1s ease;" />
+
+            <!-- Zones (Triangles) -->
+            <!-- Anxiety: High Challenge, Low Skill (Top Left) -->
+            <path d="M0,0 L500,400 L0,800 Z" fill="#fc8181" fill-opacity="0" class="zone-path" id="zone-anxiety" />
+            
+            <!-- Boredom: Low Challenge, High Skill (Bottom Right) -->
+            <path d="M1000,800 L500,400 L1000,0 Z" fill="#90cdf4" fill-opacity="0" class="zone-path" id="zone-boredom" />
+
+            <!-- Flow: High Challenge, High Skill (Diagonal Channel) -->
+            <path d="M0,800 L1000,0 L1000,150 L150,800 Z" fill="none" /> <!-- Dummy for structure -->
+            <!-- Real Flow Channel approximation for visual simplicity -->
+            <polygon points="0,800 1000,0 1000,800" fill="url(#flowGradient)" opacity="0" id="zone-flow-bg" style="transition: opacity 2s ease;" />
+            <line x1="0" y1="800" x2="1000" y2="0" stroke="#38b2ac" stroke-width="4" stroke-dasharray="20,20" opacity="0" id="flow-line" style="transition: opacity 1s ease;" />
+
+            <!-- Axes -->
+            <line x1="20" y1="780" x2="980" y2="780" class="axis-line" id="x-axis" stroke-dasharray="1000" stroke-dashoffset="1000" />
+            <line x1="20" y1="780" x2="20" y2="20" class="axis-line" id="y-axis" stroke-dasharray="800" stroke-dashoffset="800" />
+
+            <!-- Axis Labels -->
+            <text x="500" y="840" class="axis-text" id="label-skill" text-anchor="middle">SKILL / 技能水平</text>
+            <text x="-400" y="-20" class="axis-text" id="label-challenge" transform="rotate(-90)" text-anchor="middle">CHALLENGE / 挑战难度</text>
+
+            <!-- Zone Labels -->
+            <text x="200" y="200" class="zone-text" id="text-anxiety" fill="#c53030">ANXIETY / 焦虑</text>
+            <text x="800" y="700" class="zone-text" id="text-boredom" fill="#2b6cb0">BOREDOM / 厌倦</text>
+            <text x="650" y="250" class="zone-text" id="text-flow" fill="#285e61" style="font-size: 3rem;">FLOW / 心流</text>
+        </svg>
+
+        <!-- Subtitles -->
+        <div id="subtitle-container">
+            <span id="sub-en" class="sub-en">Loading experience...</span>
+            <span id="sub-cn" class="sub-cn">正在加载体验...</span>
+        </div>
+
+        <!-- Timeline Progress -->
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        // === 1. Background Physics (Canvas) ===
+        const canvas = document.getElementById('flow-canvas');
+        const ctx = canvas.getContext('2d');
+        let stageWidth, stageHeight;
+        
+        // Wave parameters
+        let waveSpeed = 0.005;
+        let waveAmplitude = 50;
+        let waveFrequency = 0.01;
+        let globalColor = { r: 56, g: 178, b: 172 }; // Default Teal
+        let time = 0;
+
+        // Resize logic to match container
+        function resize() {
+            const container = document.getElementById('stage-container');
+            stageWidth = container.clientWidth;
+            stageHeight = container.clientHeight;
+            canvas.width = stageWidth;
+            canvas.height = stageHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function drawWaves() {
+            ctx.clearRect(0, 0, stageWidth, stageHeight);
+            
+            // Create 3 layered waves
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                const yOffset = stageHeight / 2 + (i * 50);
+                
+                ctx.moveTo(0, yOffset);
+                for (let x = 0; x < stageWidth; x++) {
+                    // The wave math: multiple sine waves combined
+                    const y = Math.sin(x * waveFrequency + time + i) * waveAmplitude * (Math.sin(time * 0.5) + 1.5);
+                    ctx.lineTo(x, yOffset + y);
+                }
+
+                // Gradient fill
+                const gradient = ctx.createLinearGradient(0, 0, stageWidth, 0);
+                gradient.addColorStop(0, `rgba(${globalColor.r}, ${globalColor.g}, ${globalColor.b}, ${0.05 + (i * 0.02)})`);
+                gradient.addColorStop(1, `rgba(${globalColor.r}, ${globalColor.g}, ${globalColor.b}, ${0.1 + (i * 0.05)})`);
+                
+                ctx.lineTo(stageWidth, stageHeight);
+                ctx.lineTo(0, stageHeight);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+
+            time += waveSpeed;
+            requestAnimationFrame(drawWaves);
+        }
+        drawWaves();
+
+
+        // === 2. The Narrative Engine ===
+        const particle = document.getElementById('consciousness-particle');
+        const subEn = document.getElementById('sub-en');
+        const subCn = document.getElementById('sub-cn');
+        const progressBar = document.getElementById('progress-bar');
+        
+        // Helper to lerp visuals
+        function setVisualState(color, speed, amplitude, freq) {
+            // Smoothly transition logic would go here, for now direct assignment for simplicity in generated code
+            globalColor = color;
+            waveSpeed = speed;
+            waveAmplitude = amplitude;
+            waveFrequency = freq;
+        }
+
+        // Helper to set particle position (0-100%) inside graph container logic
+        function moveParticle(xPercent, yPercent, color = null, pulse = false) {
+            // The SVG is centered 60% w/h. 
+            // Calculation relative to stage:
+            // Center is 50%, 50%. SVG width is 60% of stage.
+            // Left edge = 20%, Right edge = 80%. Top = 20%, Bottom = 80%.
+            // Note: SVG coord system (0,0) is Top Left.
+            
+            const leftBase = 20; 
+            const topBase = 20;
+            const span = 60;
+
+            const finalLeft = leftBase + (xPercent / 100 * span);
+            const finalTop = topBase + ((100 - yPercent) / 100 * span); // Invert Y because CSS top goes down
+
+            particle.style.left = `${finalLeft}%`;
+            particle.style.top = `${finalTop}%`;
+            particle.style.opacity = '1';
+
+            if (color) {
+                particle.style.background = color;
+                particle.style.boxShadow = `0 0 30px ${color.replace('rgb', 'rgba').replace(')', ', 0.6)')}`;
+            }
+            
+            if(pulse) {
+                particle.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            } else {
+                particle.style.transform = 'translate(-50%, -50%) scale(1)';
+            }
+        }
+
+        // The Script
+        const script = [
+            {
+                t: 0,
+                en: "Have you ever felt completely lost in an activity?",
+                cn: "你是否曾完全沉浸在某项活动中，甚至忘记了时间？",
+                action: () => {
+                    setVisualState({r:56, g:178, b:172}, 0.005, 30, 0.005); // Calm
+                    document.getElementById('graph-svg').style.opacity = '0';
+                    // Move particle to center, floating
+                    particle.style.transition = "all 3s ease";
+                    particle.style.left = "50%";
+                    particle.style.top = "50%";
+                    particle.style.opacity = "1";
+                }
+            },
+            {
+                t: 4000,
+                en: "This state of effortless concentration is called 'Flow'.",
+                cn: "这种毫不费力的专注状态，在心理学中被称为“心流”。",
+                action: () => {
+                    // Gentle pulse
+                    particle.style.transform = "translate(-50%, -50%) scale(1.2)";
+                }
+            },
+            {
+                t: 8000,
+                en: "To understand it, we need to look at two dimensions.",
+                cn: "要理解它，我们需要关注两个维度。",
+                action: () => {
+                    document.getElementById('graph-svg').style.opacity = '1';
+                    document.getElementById('graph-grid').style.opacity = '1';
+                    particle.style.opacity = '0'; // Hide particle briefly
+                }
+            },
+            {
+                t: 11000,
+                en: "The X-axis represents your SKILL level.",
+                cn: "X轴代表你的技能水平。",
+                action: () => {
+                    // Draw X Axis
+                    const xLine = document.getElementById('x-axis');
+                    xLine.style.transition = "stroke-dashoffset 1s ease";
+                    xLine.style.strokeDashoffset = "0";
+                    document.getElementById('label-skill').style.opacity = "1";
+                }
+            },
+            {
+                t: 14000,
+                en: "The Y-axis represents the CHALLENGE difficulty.",
+                cn: "Y轴代表挑战的难度。",
+                action: () => {
+                    // Draw Y Axis
+                    const yLine = document.getElementById('y-axis');
+                    yLine.style.transition = "stroke-dashoffset 1s ease";
+                    yLine.style.strokeDashoffset = "0";
+                    document.getElementById('label-challenge').style.opacity = "1";
+                }
+            },
+            {
+                t: 18000,
+                en: "What happens when your skill is high, but the challenge is low?",
+                cn: "当你的技能很高，但挑战很低时，会发生什么？",
+                action: () => {
+                    particle.style.opacity = '1';
+                    // Move to Bottom Right
+                    moveParticle(90, 10, 'rgb(43, 108, 176)'); // Blue
+                    setVisualState({r:43, g:108, b:176}, 0.002, 10, 0.002); // Slow, flat waves
+                }
+            },
+            {
+                t: 22000,
+                en: "You feel BOREDOM. There is no spark.",
+                cn: "你会感到厌倦。内心缺乏火花。",
+                action: () => {
+                    document.getElementById('zone-boredom').style.fillOpacity = "0.2";
+                    document.getElementById('text-boredom').style.opacity = "1";
+                }
+            },
+            {
+                t: 26000,
+                en: "Conversely, if the challenge is high, but your skill is low...",
+                cn: "相反，如果挑战很高，但你的技能不足...",
+                action: () => {
+                    // Move to Top Left
+                    moveParticle(10, 90, 'rgb(229, 62, 62)'); // Red
+                    setVisualState({r:229, g:62, b:62}, 0.05, 80, 0.02); // Fast, jagged waves
+                    document.getElementById('zone-boredom').style.fillOpacity = "0";
+                    document.getElementById('text-boredom').style.opacity = "0.2";
+                }
+            },
+            {
+                t: 30000,
+                en: "You feel ANXIETY. It is overwhelming.",
+                cn: "你会感到焦虑。这种压力令人不堪重负。",
+                action: () => {
+                    document.getElementById('zone-anxiety').style.fillOpacity = "0.2";
+                    document.getElementById('text-anxiety').style.opacity = "1";
+                }
+            },
+            {
+                t: 35000,
+                en: "But when High Skill meets High Challenge...",
+                cn: "但当高技能遇上高挑战时...",
+                action: () => {
+                    // Fade out old zones
+                    document.getElementById('zone-anxiety').style.fillOpacity = "0";
+                    document.getElementById('text-anxiety').style.opacity = "0.2";
+                    document.getElementById('text-boredom').style.opacity = "0.2";
+                    
+                    // Start moving up diagonal
+                    moveParticle(50, 50, 'rgb(56, 178, 172)'); // Teal
+                    setVisualState({r:56, g:178, b:172}, 0.02, 60, 0.01); // Harmonic waves
+                }
+            },
+            {
+                t: 39000,
+                en: "We enter the FLOW CHANNEL.",
+                cn: "我们进入了“心流通道”。",
+                action: () => {
+                    document.getElementById('zone-flow-bg').style.opacity = "1";
+                    document.getElementById('flow-line').style.opacity = "1";
+                    document.getElementById('text-flow').style.opacity = "1";
+                    
+                    // Animate particle up the channel
+                    moveParticle(95, 95, 'rgb(255, 255, 255)', true);
+                    particle.style.boxShadow = "0 0 50px rgba(56, 178, 172, 1)";
+                }
+            },
+            {
+                t: 43000,
+                en: "Self-consciousness disappears. Time distorts.",
+                cn: "自我意识消失。时间感发生扭曲。",
+                action: () => {
+                    // Hide UI clutter for ending
+                    document.getElementById('x-axis').style.opacity = "0.5";
+                    document.getElementById('y-axis').style.opacity = "0.5";
+                    document.getElementById('label-skill').style.opacity = "0";
+                    document.getElementById('label-challenge').style.opacity = "0";
+                }
+            },
+            {
+                t: 47000,
+                en: "This is the optimal experience of life.",
+                cn: "这就是生命中的最优体验。",
+                action: () => {
+                   // Final serene state
+                   setVisualState({r:237, g:137, b:54}, 0.01, 40, 0.01); // Warm Gold/Orange
+                   particle.style.background = "white";
+                   document.getElementById('text-flow').style.fill = "#ed8936";
+                }
+            },
+            {
+                t: 52000,
+                en: "Find your flow.",
+                cn: "去寻找你的心流吧。",
+                action: () => {
+                    // Fade out subtitle slowly
+                }
+            }
+        ];
+
+        // === 3. Playback Controller ===
+        let startTime = null;
+        const totalDuration = 55000; // 55 seconds total
+        
+        function animateTimeline(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            
+            // Progress Bar
+            const progress = Math.min((elapsed / totalDuration) * 100, 100);
+            progressBar.style.width = `${progress}%`;
+
+            // Trigger Events
+            for (let i = 0; i < script.length; i++) {
+                const event = script[i];
+                if (elapsed >= event.t && !event.triggered) {
+                    // Update Text
+                    subEn.style.opacity = 0;
+                    subCn.style.opacity = 0;
+                    
+                    setTimeout(() => {
+                        subEn.innerText = event.en;
+                        subCn.innerText = event.cn;
+                        subEn.style.opacity = 1;
+                        subCn.style.opacity = 1;
+                    }, 300);
+
+                    // Execute Action
+                    if (event.action) event.action();
+                    
+                    event.triggered = true;
+                }
+            }
+
+            if (elapsed < totalDuration + 2000) {
+                requestAnimationFrame(animateTimeline);
+            }
+        }
+
+        // Start
+        window.onload = () => {
+            requestAnimationFrame(animateTimeline);
+        };
+
+    </script>
+</body>
+</html>

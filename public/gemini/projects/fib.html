@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斐波那契螺旋 - The Golden Spiral</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #fdfbf7; /* Warm paper color */
+            color: #2d3748;
+            font-family: 'Noto Serif SC', serif;
+        }
+        
+        /* Ensure the container maintains a 16:9 aspect ratio or fits screen */
+        #stage-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Text overlay styling */
+        .overlay-text {
+            position: absolute;
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
+            transition: opacity 1s ease-in-out, transform 1s ease-out;
+            z-index: 10;
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.8);
+        }
+
+        .subtitle-container {
+            position: absolute;
+            bottom: 10%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            z-index: 20;
+            padding: 0 2rem;
+        }
+
+        .subtitle-cn {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.1em;
+            background: linear-gradient(45deg, #d97706, #ea580c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .subtitle-en {
+            font-size: 1.1rem;
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            color: #718096;
+            letter-spacing: 0.05em;
+        }
+
+        .fade-enter { opacity: 0; transform: translateY(20px); }
+        .fade-enter-active { opacity: 1; transform: translateY(0); }
+        .fade-exit { opacity: 1; transform: translateY(0); }
+        .fade-exit-active { opacity: 0; transform: translateY(-20px); }
+
+        /* Progress bar at bottom */
+        #progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(to right, #fbbf24, #f97316);
+            width: 0%;
+            transition: width 0.2s linear;
+            z-index: 30;
+        }
+
+        /* Grainy texture overlay */
+        .noise {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.03;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage-container">
+        <!-- The Canvas -->
+        <canvas id="artCanvas"></canvas>
+
+        <!-- Texture Overlay -->
+        <div class="noise"></div>
+
+        <!-- Subtitle Area -->
+        <div class="subtitle-container">
+            <div id="sub-cn" class="subtitle-cn transition-all duration-700"></div>
+            <div id="sub-en" class="subtitle-en transition-all duration-700"></div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progress-bar"></div>
+    </div>
+
+    <script>
+        /**
+         * Configuration & State
+         */
+        const config = {
+            colors: {
+                bg: '#fdfbf7',
+                line: '#d97706', // Amber 600
+                rectStroke: 'rgba(180, 180, 180, 0.3)',
+                rectFill: 'rgba(251, 191, 36, 0.05)', // Amber 300 very transparent
+                arc: '#ea580c', // Orange 600
+                particle: '#b45309', // Amber 700
+                text: '#2d3748'
+            },
+            animationSpeed: 1.0, // Global speed multiplier
+            maxFibNumbers: 16,    // How many squares to draw
+        };
+
+        const state = {
+            time: 0,
+            phase: 0, // 0: Intro, 1: Squares, 2: Spiral, 3: Sunflower, 4: End
+            camera: { x: 0, y: 0, zoom: 1 },
+            targetCamera: { x: 0, y: 0, zoom: 1 },
+            squares: [],
+            particles: [] // For sunflower effect
+        };
+
+        // Narrative Script
+        const script = [
+            { start: 0, end: 4, cn: "数学是宇宙的语言", en: "Mathematics is the language of the universe." },
+            { start: 4.5, end: 8, cn: "让我们从最简单的开始：1 加 1", en: "Let's start with the simplest origin: 1 plus 1." },
+            { start: 8.5, end: 12, cn: "每一个新数字，都是前两个之和", en: "Each new number is the sum of the previous two." },
+            { start: 12.5, end: 16, cn: "1, 1, 2, 3, 5, 8...", en: "1, 1, 2, 3, 5, 8..." },
+            { start: 16.5, end: 21, cn: "这就是斐波那契数列", en: "This is the Fibonacci Sequence." },
+            { start: 22, end: 26, cn: "连接对角线，黄金螺旋优雅显现", en: "Connecting the diagonals, the Golden Spiral emerges." },
+            { start: 27, end: 32, cn: "这种完美的比例隐藏在自然界深处", en: "This perfect proportion is hidden deep within nature." },
+            { start: 33, end: 38, cn: "从鹦鹉螺的壳，到向日葵的种子", en: "From the nautilus shell to sunflower seeds." },
+            { start: 39, end: 45, cn: "黄金角度：137.5度", en: "The Golden Angle: 137.5 degrees." },
+            { start: 46, end: 52, cn: "混沌中的秩序，数学中的诗意", en: "Order in chaos, poetry in mathematics." }
+        ];
+
+        const canvas = document.getElementById('artCanvas');
+        const ctx = canvas.getContext('2d');
+        const subCn = document.getElementById('sub-cn');
+        const subEn = document.getElementById('sub-en');
+        const progressBar = document.getElementById('progress-bar');
+
+        /**
+         * Initialization
+         */
+        function init() {
+            resize();
+            window.addEventListener('resize', resize);
+            
+            // Pre-calculate Fibonacci squares positions
+            let x = 0, y = 0;
+            let dx = 0, dy = -1; // Start direction: Up (relative to init) - Adjust logic below
+            // Standard Fib visual order: Center(1) -> Right(1) -> Top(2) -> Left(3) -> Bottom(5) -> Right(8)...
+            // Let's map directions: 0:Right, 1:Up, 2:Left, 3:Down
+            
+            let fib = [1, 1];
+            for(let i=2; i<config.maxFibNumbers; i++) {
+                fib[i] = fib[i-1] + fib[i-2];
+            }
+
+            // Custom Coordinate Calculation
+            // Start at 0,0. 
+            // Dir 0 (Right): x += prevSize.
+            // Dir 1 (Up): x -= (currSize - prevSize), y -= currSize
+            // This is complex to hardcode, let's simulate the "growth"
+            
+            let currentX = 0;
+            let currentY = 0;
+            
+            // We need to track min/max bounds to center things initially
+            // Directions: 0: Right, 1: Up, 2: Left, 3: Down
+            let dir = 0; 
+            
+            // Hardcoding first few steps to ensure correct standard spiral orientation
+            // Square 0 (size 1): at 0,0
+            state.squares.push({ x: 0, y: 0, size: 1, val: 1, dir: 0 });
+            
+            // Square 1 (size 1): to the right of sq0. x=1, y=0.
+            state.squares.push({ x: 1, y: 0, size: 1, val: 1, dir: 1 });
+            
+            // Square 2 (size 2): above. x=0, y=-2. (Top-left corner)
+            // Wait, let's use standard coordinate system where drawing happens from Top-Left of the square
+            
+            // RESTART LOGIC:
+            // We define a square by its (x,y) top-left coordinate and size.
+            // Seq: 1, 1, 2, 3, 5, 8...
+            // 1. (0,0) size 1. End (1,1)
+            // 2. Right of it: (1,0) size 1.
+            // 3. Above both: (0,-2) size 2. (spanning x=0 to 2)
+            // 4. Left of all: (-3,-2) size 3. (spanning y=-2 to 1)
+            // 5. Below all: (-3, 1) size 5.
+            // 6. Right of all: (2, -2) size 8...?
+            
+            // Let's use a simple "cursor" logic that moves around the bounding box of the existing shape.
+            // But for smooth animation, simpler is to pre-calculate.
+            
+            const calculatedSquares = [
+                {x: 0, y: 0, s: 1, label: '1'},        // 0
+                {x: 1, y: 0, s: 1, label: '1'},        // 1 (Right)
+                {x: 0, y: -2, s: 2, label: '2'},       // 2 (Up)
+                {x: -3, y: -2, s: 3, label: '3'},      // 3 (Left)
+                {x: -3, y: 1, s: 5, label: '5'},       // 4 (Down)
+                {x: 2, y: 1, s: 8, label: '8'},        // 5 (Right)
+                {x: 2, y: -7, s: 13, label: '13'},     // 6 (Up)
+                {x: -11, y: -7, s: 21, label: '21'},   // 7 (Left)
+                {x: -11, y: 14, s: 34, label: '34'},   // 8 (Down)
+                {x: 23, y: 14, s: 55, label: '55'},    // 9 (Right)
+                {x: 23, y: -41, s: 89, label: '89'},   // 10
+                {x: -66, y: -41, s: 144, label: '144'}, // 11
+                {x: -66, y: 103, s: 233, label: '233'}, // 12
+                {x: 167, y: 103, s: 377, label: '377'}, // 13
+            ];
+            
+            // Directions correspond to where the arc is drawn
+            // 0: bottom-right to top-left (in visual terms, actually angles)
+            const directions = [2, 3, 0, 1]; // Arc start quadrants
+
+            state.squares = calculatedSquares.map((sq, i) => ({
+                ...sq,
+                val: parseInt(sq.label),
+                arcStart: (directions[i % 4] * Math.PI) / 2,
+                idx: i
+            }));
+
+            // Generate Sunflower Particles
+            for(let i=0; i<600; i++) {
+                const angle = i * 137.508 * (Math.PI / 180);
+                const r = 4 * Math.sqrt(i); // scale factor
+                state.particles.push({
+                    x: r * Math.cos(angle),
+                    y: r * Math.sin(angle),
+                    r: 2 + (i/200), // size grows slightly
+                    delay: i * 0.01
+                });
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function resize() {
+            // High DPI
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        /**
+         * Core Animation Loop
+         */
+        function animate(timestamp) {
+            const dt = (timestamp - state.time) / 1000;
+            state.time = timestamp;
+            const t = state.time / 1000; // Seconds
+
+            updateLogic(t);
+            draw(t);
+
+            requestAnimationFrame(animate);
+        }
+
+        /**
+         * Logic & Camera Updates
+         */
+        function updateLogic(t) {
+            // Update Subtitles
+            const currentScript = script.find(s => t >= s.start && t < s.end);
+            if (currentScript) {
+                if (subCn.innerText !== currentScript.cn) {
+                    subCn.style.opacity = 0;
+                    subEn.style.opacity = 0;
+                    subCn.style.transform = 'translateY(10px)';
+                    
+                    setTimeout(() => {
+                        subCn.innerText = currentScript.cn;
+                        subEn.innerText = currentScript.en;
+                        subCn.style.opacity = 1;
+                        subEn.style.opacity = 1;
+                        subCn.style.transform = 'translateY(0)';
+                    }, 300);
+                }
+            } else if (t > script[script.length-1].end) {
+                // End of script
+            }
+
+            // Progress Bar
+            const totalDuration = 55;
+            const progress = Math.min((t / totalDuration) * 100, 100);
+            progressBar.style.width = `${progress}%`;
+
+            // Camera Logic
+            // Determine active square based on time
+            // We intro squares one by one roughly every 1.5 seconds after intro
+            const squareStartTime = 6;
+            const timePerSquare = 1.5;
+            
+            let activeIndex = -1;
+            if (t > squareStartTime) {
+                activeIndex = Math.floor((t - squareStartTime) / timePerSquare);
+            }
+            activeIndex = Math.min(activeIndex, state.squares.length - 1);
+
+            // Target Calculation
+            let targetZoom = 40; // Initial Zoom
+            let targetX = 0;
+            let targetY = 0;
+
+            if (activeIndex >= 0) {
+                const sq = state.squares[activeIndex];
+                
+                // Zoom out as squares get bigger
+                // Base zoom / square size
+                targetZoom = 100 / (sq.s * 0.8); 
+                
+                // Clamp zoom for very large squares
+                if(targetZoom < 0.5) targetZoom = 0.5;
+                if(targetZoom > 60) targetZoom = 60;
+
+                // Center on the current square
+                targetX = -sq.x - sq.s/2;
+                targetY = -sq.y - sq.s/2;
+
+                // Spiral Mode (Phase 2) logic: Follow the spiral tip?
+                // Just keep centering on the box for now, it's smoother.
+            }
+            
+            // Sunflower Phase Camera (around 35s)
+            if (t > 32) {
+                targetZoom = 8; // Zoom in for flower
+                targetX = 0;
+                targetY = 0;
+            }
+
+            // Smooth Camera (Lerp)
+            const speed = 0.05;
+            state.camera.zoom += (targetZoom - state.camera.zoom) * speed;
+            state.camera.x += (targetX - state.camera.x) * speed;
+            state.camera.y += (targetY - state.camera.y) * speed;
+        }
+
+        /**
+         * Drawing
+         */
+        function draw(t) {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.save();
+            
+            // Apply Camera Transform
+            // Translate to center of screen
+            ctx.translate(width / 2, height / 2);
+            // Scale
+            ctx.scale(state.camera.zoom, state.camera.zoom);
+            // Translate to world position
+            ctx.translate(state.camera.x, state.camera.y);
+
+            // --- Phase 1 & 2: Squares and Spiral ---
+            if (t < 35) {
+                const squareStartTime = 6;
+                const timePerSquare = 1.5;
+                
+                // How many squares to fully draw
+                let visibleCount = 0;
+                if (t > squareStartTime) {
+                    visibleCount = (t - squareStartTime) / timePerSquare;
+                }
+
+                state.squares.forEach((sq, i) => {
+                    // Visibility Logic
+                    if (i > visibleCount) return;
+                    
+                    const progress = Math.min(1, visibleCount - i); // 0 to 1 for current square
+                    const opacity = progress;
+
+                    // Draw Square
+                    ctx.lineWidth = 1 / state.camera.zoom * 1.5; // Keep line width consistent regardless of zoom
+                    ctx.strokeStyle = config.colors.rectStroke;
+                    ctx.fillStyle = config.colors.rectFill;
+                    
+                    // Stroke Animation
+                    if (progress > 0) {
+                        ctx.beginPath();
+                        ctx.rect(sq.x, sq.y, sq.s, sq.s);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Text Label (Number)
+                        if (progress > 0.8 && sq.s > 0.5 / state.camera.zoom) { // Don't draw text if too small
+                            ctx.fillStyle = `rgba(45, 55, 72, ${opacity})`;
+                            // Dynamic font size
+                            const fontSize = Math.max(sq.s / 3, 0.5);
+                            ctx.font = `${fontSize}px 'Noto Serif SC'`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(sq.val, sq.x + sq.s/2, sq.y + sq.s/2);
+                        }
+                    }
+
+                    // Draw Spiral Arc
+                    // Only start drawing arc after square is mostly done or if we are in Spiral Phase
+                    // Narrative says "Golden Spiral emerges" around 22s
+                    if (t > 22 && i <= visibleCount) {
+                        const arcProgress = Math.min(1, (t - 22 - (i*0.2)) ); // Cascade animation
+                        
+                        if (arcProgress > 0) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = config.colors.arc;
+                            ctx.lineWidth = 2 / state.camera.zoom * 2;
+                            
+                            // Determine arc center and radius based on quadrant
+                            let cx, cy;
+                            let startAngle = sq.arcStart;
+                            let endAngle = startAngle + (Math.PI/2);
+                            
+                            // 0: bottom-right corner is center of arc? No.
+                            // If filling quadrant 2 (top-right), center is bottom-left.
+                            // Directions from calculation: 2, 3, 0, 1
+                            // 2 (Left/Bottom-left quad): center is Top-Right (x+s, y)
+                            // This depends on the coordinate mapping. 
+                            
+                            // Visual adjustments for standard spiral:
+                            switch(i % 4) {
+                                case 0: // Sq 0 (1x1). Spiral goes bottom-left to top-right inside.
+                                        // Center is Top-Left (0,0) ? No, standard spiral centers are:
+                                        // (1,1), (1,0), (0,0)...
+                                        cx = sq.x + sq.s; cy = sq.y + sq.s; // Bottom Right
+                                        startAngle = Math.PI; endAngle = Math.PI * 1.5;
+                                        break;
+                                case 1: // Right square. Center Bottom-Left
+                                        cx = sq.x; cy = sq.y + sq.s;
+                                        startAngle = Math.PI * 1.5; endAngle = Math.PI * 2;
+                                        break;
+                                case 2: // Top square. Center Top-Left? No.
+                                        // To draw arc in Top square (quadrant), going Left-Up.
+                                        // Center is Bottom-Right of that square? No.
+                                        // Center matches the corner of previous square.
+                                        cx = sq.x; cy = sq.y + sq.s; // Bottom-Left
+                                        startAngle = 0; endAngle = Math.PI * 0.5; 
+                                        // Wait, coordinates are tricky. Let's look at visual flow.
+                                        // Arc goes:
+                                        // Sq0: Bottom-Right corner (1,1) is center. Radius 1. Arc from (0,1) to (1,0). (PI to 1.5PI) - OK.
+                                        // Sq1: Bottom-Left (1,1) is center. Radius 1. Arc from (1,0) to (2,1). (1.5PI to 2PI) - OK.
+                                        // Sq2: Top-Left (1,-1) is center? NO.
+                                        // Let's genericize: The center is the corner shared with the PREVIOUS square (conceptually).
+                                        break;
+                            }
+                            
+                            // Simplified Arc Logic based on visual check
+                            // [1] Center (1,1) start PI end 1.5PI
+                            // [2] Center (1,1) start 1.5PI end 2PI
+                            // [3] Center (1,-1) start 0 end 0.5PI -- Sq 2 is at (0,-2) size 2.
+                            //     Center (1,0) ?
+                            
+                            // Let's use a simpler approach for visual fidelity:
+                            // Just draw the accumulated curve points or simple Bezier? 
+                            // No, user wants math accuracy.
+                            
+                            // Hardcoded Centers for first few to establish pattern logic
+                            const centers = [
+                                {x: 1, y: 1, sa: Math.PI, ea: Math.PI*1.5},       // Sq0
+                                {x: 1, y: 1, sa: Math.PI*1.5, ea: Math.PI*2},     // Sq1
+                                {x: 1, y: 0, sa: 0, ea: Math.PI*0.5},             // Sq2
+                                {x: 0, y: 0, sa: Math.PI*0.5, ea: Math.PI},       // Sq3
+                                {x: 0, y: 1, sa: Math.PI, ea: Math.PI*1.5},       // Sq4 (Loop repeats offset?)
+                                {x: 2, y: 1, sa: Math.PI*1.5, ea: Math.PI*2},     // Sq5
+                                {x: 2, y: -2, sa: 0, ea: Math.PI*0.5},            // Sq6
+                                {x: -3, y: -2, sa: Math.PI*0.5, ea: Math.PI},     // Sq7
+                                {x: -3, y: 3, sa: Math.PI, ea: Math.PI*1.5},      // Sq8
+                                {x: 5, y: 3, sa: Math.PI*1.5, ea: Math.PI*2},     // Sq9
+                                {x: 5, y: -10, sa: 0, ea: Math.PI*0.5},           // Sq10
+                                {x: -16, y: -10, sa: Math.PI*0.5, ea: Math.PI},   // Sq11
+                                {x: -16, y: 11, sa: Math.PI, ea: Math.PI*1.5},    // Sq12
+                                {x: 26, y: 11, sa: Math.PI*1.5, ea: Math.PI*2},   // Sq13
+                            ];
+
+                            if (centers[i]) {
+                                ctx.arc(centers[i].x, centers[i].y, sq.s, centers[i].sa, centers[i].sa + (Math.PI/2 * arcProgress));
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                });
+            }
+
+            // --- Phase 3: Sunflower / Nature (Transition at 33s) ---
+            if (t > 30) {
+                const transition = Math.min(1, (t - 30) / 4);
+                ctx.globalAlpha = transition;
+
+                // Rotate the whole flower slowly
+                ctx.rotate(t * 0.05);
+
+                state.particles.forEach((p, i) => {
+                    // Animate appearance
+                    const pTime = t - 32; // Start blooming at 32
+                    if (pTime < p.delay) return;
+                    
+                    const grow = Math.min(1, (pTime - p.delay));
+                    
+                    ctx.beginPath();
+                    ctx.fillStyle = config.colors.particle;
+                    
+                    // Visual flair: Color gradient from center
+                    const distRatio = i / state.particles.length;
+                    ctx.fillStyle = distRatio < 0.2 ? '#78350f' : (distRatio < 0.6 ? '#d97706' : '#f59e0b');
+
+                    const drawX = p.x * grow;
+                    const drawY = p.y * grow;
+                    const size = p.r * grow;
+
+                    ctx.arc(drawX, drawY, size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                ctx.globalAlpha = 1.0;
+            }
+
+            ctx.restore();
+            
+            // Optional: Debug / Effect overlay
+            // Vignette
+            const gradient = ctx.createRadialGradient(width/2, height/2, width/3, width/2, height/2, width);
+            gradient.addColorStop(0, 'rgba(253, 251, 247, 0)');
+            gradient.addColorStop(1, 'rgba(253, 251, 247, 0.8)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>

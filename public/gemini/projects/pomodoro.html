@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>番茄工作法 - The Pomodoro Technique</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background-color: #F8FAFC; /* Slate 50 */
+            overflow: hidden;
+        }
+
+        /* 动画关键帧 */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes grow-tree {
+            0% { transform: scale(0) translateY(20px); opacity: 0; }
+            60% { transform: scale(1.1) translateY(-5px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        @keyframes progress-ring {
+            0% { stroke-dashoffset: 628; }
+            100% { stroke-dashoffset: 0; }
+        }
+
+        @keyframes wave-move {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.98); }
+        }
+
+        /* 实用类 */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        }
+
+        .scene-transition {
+            transition: opacity 1s ease-in-out, transform 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        .hidden-scene {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scale(1.05);
+        }
+
+        .active-scene {
+            opacity: 1;
+            transform: scale(1);
+            position: relative;
+            z-index: 10;
+        }
+
+        /* 像素画样式 */
+        .pixel-art {
+            image-rendering: pixelated;
+        }
+        
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(12, 1fr);
+            width: 100%;
+            height: 100%;
+        }
+        .p-cell { width: 100%; height: 100%; }
+        .c-green-d { background-color: #15803d; } /* dark green */
+        .c-green-l { background-color: #4ade80; } /* light green */
+        .c-brown { background-color: #78350f; } /* trunk */
+        .c-pot { background-color: #d97706; } /* pot */
+
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen w-screen text-slate-800 selection:bg-rose-200">
+
+    <!-- 主舞台容器 (保持 16:9 比例，最大支持 2K) -->
+    <div id="stage" class="relative w-full max-w-[2560px] aspect-video bg-white overflow-hidden shadow-2xl rounded-none md:rounded-2xl border border-slate-100">
+        
+        <!-- 背景动态层 -->
+        <div class="absolute inset-0 z-0 bg-gradient-to-br from-rose-50 via-white to-blue-50">
+            <!-- 装饰性圆形 -->
+            <div class="absolute top-[-10%] right-[-5%] w-[50vw] h-[50vw] rounded-full bg-rose-100/30 blur-3xl animate-[pulse_8s_infinite]"></div>
+            <div class="absolute bottom-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-blue-100/30 blur-3xl animate-[pulse_10s_infinite_reverse]"></div>
+        </div>
+
+        <!-- 核心内容区域 -->
+        <div class="relative z-10 w-full h-full flex flex-col justify-between p-12 md:p-24">
+            
+            <!-- 顶部：标题与进度指示 -->
+            <div class="flex justify-between items-start">
+                <div class="flex flex-col">
+                    <h1 id="main-title" class="text-3xl md:text-5xl font-bold tracking-tight text-slate-800 transition-all duration-700">
+                        番茄工作法
+                    </h1>
+                    <span id="sub-title" class="text-lg md:text-2xl text-slate-500 font-light mt-2 transition-all duration-700">
+                        The Pomodoro Technique
+                    </span>
+                </div>
+                <!-- 进度条 -->
+                <div class="flex gap-2 mt-4">
+                    <div class="h-2 w-8 md:w-16 rounded-full bg-slate-200 transition-colors duration-500 step-dot" id="dot-0"></div>
+                    <div class="h-2 w-8 md:w-16 rounded-full bg-slate-200 transition-colors duration-500 step-dot" id="dot-1"></div>
+                    <div class="h-2 w-8 md:w-16 rounded-full bg-slate-200 transition-colors duration-500 step-dot" id="dot-2"></div>
+                    <div class="h-2 w-8 md:w-16 rounded-full bg-slate-200 transition-colors duration-500 step-dot" id="dot-3"></div>
+                </div>
+            </div>
+
+            <!-- 中间：动态视觉展示区 (Scenes) -->
+            <div class="flex-1 relative flex items-center justify-center my-8">
+                
+                <!-- Scene 0: Intro Icon -->
+                <div id="scene-0" class="active-scene scene-transition absolute inset-0 flex items-center justify-center">
+                    <div class="relative w-48 h-48 md:w-80 md:h-80">
+                        <!-- 巨大的番茄图标 -->
+                        <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-2xl animate-[float_6s_ease-in-out_infinite]">
+                            <circle cx="50" cy="55" r="40" fill="#f43f5e" /> <!-- Rose 500 -->
+                            <circle cx="50" cy="55" r="35" fill="none" stroke="#fb7185" stroke-width="2" opacity="0.5"/>
+                            <!-- 叶子 -->
+                            <path d="M50 15 Q60 5 70 20 Q50 25 50 15" fill="#22c55e" />
+                            <path d="M50 15 Q40 5 30 20 Q50 25 50 15" fill="#22c55e" />
+                            <rect x="48" y="10" width="4" height="10" rx="2" fill="#15803d" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Scene 1: Timer Setting -->
+                <div id="scene-1" class="hidden-scene scene-transition absolute inset-0 flex items-center justify-center">
+                    <div class="relative w-64 h-64 md:w-96 md:h-96">
+                        <!-- SVG 倒计时圆环 -->
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="50%" cy="50%" r="45%" stroke="#e2e8f0" stroke-width="8" fill="none" />
+                            <circle id="timer-ring" cx="50%" cy="50%" r="45%" stroke="#f43f5e" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="0 628" />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-700">
+                            <span class="text-6xl md:text-8xl font-mono font-bold tracking-tighter" id="timer-text">25:00</span>
+                            <span class="text-sm md:text-xl uppercase tracking-widest mt-2 text-rose-500 font-semibold">Focus Time</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scene 2: White Noise / Focus -->
+                <div id="scene-2" class="hidden-scene scene-transition absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-3xl glass-panel border border-white/50">
+                     <!-- 波形背景 -->
+                    <div class="absolute inset-0 opacity-20 flex items-center">
+                        <div class="w-[200%] flex animate-[wave-move_10s_linear_infinite]">
+                            <svg viewBox="0 0 1440 320" class="w-full h-auto text-indigo-300 fill-current">
+                                <path d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                            </svg>
+                            <svg viewBox="0 0 1440 320" class="w-full h-auto text-indigo-300 fill-current">
+                                <path d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="z-10 relative bg-white/80 p-8 rounded-2xl shadow-sm text-center animate-[pulse-soft_3s_infinite]">
+                        <div class="text-4xl mb-2">🎧</div>
+                        <h3 class="text-2xl font-bold text-indigo-900">White Noise</h3>
+                        <p class="text-indigo-600">Blocking Distractions...</p>
+                    </div>
+                </div>
+
+                <!-- Scene 3: Success / Pixel Tree -->
+                <div id="scene-3" class="hidden-scene scene-transition absolute inset-0 flex items-center justify-center">
+                    <div class="flex flex-col items-center">
+                        <div class="w-64 h-64 md:w-80 md:h-80 relative animate-[grow-tree_1s_cubic-bezier(0.175,0.885,0.32,1.275)_forwards]">
+                            <!-- CSS Grid Pixel Art Tree -->
+                            <div class="pixel-grid">
+                                <!-- 简单的像素树结构 -->
+                                <!-- Row 1-3: Top leaves -->
+                                <div style="grid-area: 1/6/2/7;" class="p-cell c-green-l"></div>
+                                <div style="grid-area: 2/5/3/8;" class="p-cell c-green-l"></div>
+                                <div style="grid-area: 3/4/4/9;" class="p-cell c-green-d"></div>
+                                <!-- Row 4-6: Middle leaves -->
+                                <div style="grid-area: 4/3/5/10;" class="p-cell c-green-l"></div>
+                                <div style="grid-area: 5/3/6/10;" class="p-cell c-green-d"></div>
+                                <div style="grid-area: 6/2/7/11;" class="p-cell c-green-l"></div>
+                                <!-- Row 7-8: Bottom leaves -->
+                                <div style="grid-area: 7/2/8/11;" class="p-cell c-green-d"></div>
+                                <div style="grid-area: 8/3/9/10;" class="p-cell c-green-d"></div>
+                                <!-- Trunk -->
+                                <div style="grid-area: 9/5/11/7;" class="p-cell c-brown"></div>
+                                <!-- Pot -->
+                                <div style="grid-area: 11/4/13/8;" class="p-cell c-pot"></div>
+                            </div>
+                        </div>
+                        <div class="mt-8 text-center bg-white px-6 py-3 rounded-full shadow-lg border border-green-100">
+                            <span class="text-green-600 font-bold text-xl md:text-2xl">+1 Pixel Tree</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 底部：双语字幕区 -->
+            <div class="relative h-32 md:h-40 flex items-end justify-center pb-4">
+                <div class="glass-panel w-full md:w-3/4 lg:w-2/3 px-8 py-6 rounded-xl text-center transition-all duration-500 transform hover:scale-[1.02]">
+                    <p id="caption-cn" class="text-xl md:text-3xl font-bold text-slate-800 mb-2 leading-relaxed">
+                        <!-- 中文动态内容 -->
+                    </p>
+                    <p id="caption-en" class="text-sm md:text-lg text-slate-500 font-medium">
+                        <!-- English dynamic content -->
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 剧本配置
+        const script = [
+            {
+                scene: 0,
+                duration: 4000,
+                title: "概念介绍",
+                subtitle: "Introduction",
+                cn: "番茄工作法，是一种简单而强大的时间管理方法。",
+                en: "The Pomodoro Technique is a simple yet powerful time management method."
+            },
+            {
+                scene: 0,
+                duration: 4000,
+                title: "设定目标",
+                subtitle: "Set Goal",
+                cn: "选择一个待完成的任务，准备开始专注。",
+                en: "Choose a task to be accomplished and prepare to focus."
+            },
+            {
+                scene: 1,
+                duration: 1000, // Transition setup
+                title: "步骤一",
+                subtitle: "Step 1",
+                cn: "设定一个 25 分钟的倒计时。",
+                en: "Set a timer for 25 minutes.",
+                action: () => {
+                    // 触发倒计时动画
+                    const ring = document.getElementById('timer-ring');
+                    ring.style.transition = 'none';
+                    ring.style.strokeDasharray = '0 628';
+                    setTimeout(() => {
+                        ring.style.transition = 'stroke-dasharray 3s linear';
+                        ring.style.strokeDasharray = '628 628';
+                    }, 100);
+                }
+            },
+            {
+                scene: 1,
+                duration: 3500,
+                title: "步骤一",
+                subtitle: "Step 1",
+                cn: "这就是一个“番茄钟”。在这段时间内，全力以赴。",
+                en: "This is one 'Pomodoro'. Work with sheer intensity during this time."
+            },
+            {
+                scene: 2,
+                duration: 5000,
+                title: "保持专注",
+                subtitle: "Stay Focused",
+                cn: "伴随白噪音，屏蔽外界干扰，进入心流状态。",
+                en: "Block out distractions with white noise and enter a flow state."
+            },
+            {
+                scene: 3,
+                duration: 2000, // Transition
+                title: "获得奖励",
+                subtitle: "Reward",
+                cn: "叮！时间到。你成功完成了一个番茄钟。",
+                en: "Ding! Time is up. You have successfully completed a Pomodoro."
+            },
+            {
+                scene: 3,
+                duration: 5000,
+                title: "成就可视化",
+                subtitle: "Visualization",
+                cn: "作为奖励，你的界面会长出一颗可爱的像素树。",
+                en: "As a reward, a cute pixel tree grows on your interface."
+            },
+            {
+                scene: 0,
+                duration: 5000,
+                title: "休息与重复",
+                subtitle: "Rest & Repeat",
+                cn: "休息5分钟，然后重复。每4个番茄钟后，享受长休息。",
+                en: "Take a 5-minute break, then repeat. After 4 Pomodoros, take a long break."
+            }
+        ];
+
+        let currentStep = 0;
+        
+        // 元素引用
+        const els = {
+            title: document.getElementById('main-title'),
+            subTitle: document.getElementById('sub-title'),
+            cn: document.getElementById('caption-cn'),
+            en: document.getElementById('caption-en'),
+            dots: [
+                document.getElementById('dot-0'),
+                document.getElementById('dot-1'),
+                document.getElementById('dot-2'),
+                document.getElementById('dot-3')
+            ]
+        };
+
+        function updateScene(stepIndex) {
+            const data = script[stepIndex];
+            
+            // 1. 更新文字
+            els.title.innerText = data.title;
+            els.subTitle.innerText = data.subtitle;
+            
+            // 字幕淡入淡出效果
+            els.cn.style.opacity = 0;
+            els.en.style.opacity = 0;
+            
+            setTimeout(() => {
+                els.cn.innerText = data.cn;
+                els.en.innerText = data.en;
+                els.cn.style.opacity = 1;
+                els.en.style.opacity = 1;
+            }, 300);
+
+            // 2. 切换场景可见性
+            document.querySelectorAll('.active-scene').forEach(el => {
+                if (el.id !== `scene-${data.scene}`) {
+                    el.classList.remove('active-scene');
+                    el.classList.add('hidden-scene');
+                }
+            });
+            
+            const nextScene = document.getElementById(`scene-${data.scene}`);
+            if (nextScene.classList.contains('hidden-scene')) {
+                nextScene.classList.remove('hidden-scene');
+                nextScene.classList.add('active-scene');
+            }
+
+            // 3. 更新进度点
+            els.dots.forEach((dot, i) => {
+                if (i < Math.ceil((stepIndex + 1) / script.length * 4)) {
+                    dot.classList.remove('bg-slate-200');
+                    dot.classList.add('bg-rose-500');
+                } else {
+                    dot.classList.remove('bg-rose-500');
+                    dot.classList.add('bg-slate-200');
+                }
+            });
+
+            // 4. 执行特定动作
+            if (data.action) data.action();
+
+            // 5. 安排下一步
+            const nextStep = (currentStep + 1) % script.length;
+            setTimeout(() => {
+                currentStep = nextStep;
+                updateScene(currentStep);
+            }, data.duration);
+        }
+
+        // 启动
+        window.onload = () => {
+            setTimeout(() => {
+                updateScene(0);
+            }, 500); // 短暂延迟确保加载完成
+        };
+
+    </script>
+</body>
+</html>

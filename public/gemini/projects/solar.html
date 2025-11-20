@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太阳系微缩模型 | Solar System Miniature</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700&family=Noto+Serif+SC:wght@400;700&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f8fafc; /* slate-50 */
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        
+        /* 容器设置：模拟视频播放器 */
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+        }
+
+        /* 优雅的字幕样式 */
+        .subtitle-container {
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 80%;
+            pointer-events: none;
+            z-index: 10;
+            transition: opacity 0.8s ease-in-out;
+        }
+
+        .subtitle-cn {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b; /* slate-800 */
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,1);
+            letter-spacing: 0.05em;
+        }
+
+        .subtitle-en {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+            font-weight: 400;
+            color: #64748b; /* slate-500 */
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+
+        /* 进度条 */
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            width: 0%;
+            transition: width 0.1s linear;
+            z-index: 20;
+        }
+
+        /* 标题覆盖层 */
+        #intro-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(248, 250, 252, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            transition: opacity 1.5s ease-out;
+        }
+        
+        .title-main {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 4rem;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            letter-spacing: 0.2em;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeUp 1.2s ease-out forwards 0.5s;
+        }
+
+        .title-sub {
+            font-family: 'Cinzel', serif;
+            font-size: 1.5rem;
+            color: #475569;
+            letter-spacing: 0.4em;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeUp 1.2s ease-out forwards 1s;
+        }
+
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 隐藏类 */
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <!-- 核心画布 -->
+        <canvas id="spaceCanvas"></canvas>
+        
+        <!-- 视觉遮罩与晕影 -->
+        <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(circle at center, transparent 50%, rgba(248,250,252,0.4) 100%); box-shadow: inset 0 0 100px rgba(255,255,255,0.8);"></div>
+
+        <!-- 字幕区域 -->
+        <div id="subtitles" class="subtitle-container hidden">
+            <div id="sub-cn" class="subtitle-cn"></div>
+            <div id="sub-en" class="subtitle-en"></div>
+        </div>
+
+        <!-- 进度条 -->
+        <div id="progress" class="progress-bar"></div>
+
+        <!-- 开场白 -->
+        <div id="intro-overlay">
+            <h1 class="title-main">星际尺度</h1>
+            <h2 class="title-sub">SOLAR SYSTEM MINIATURE</h2>
+        </div>
+    </div>
+
+<script>
+/**
+ * 太阳系微缩模型 - 动态演示脚本
+ * Engine: Native Canvas API
+ * Logic: Scene Management, Camera Interpolation, Physics-lite Orbits
+ */
+
+// 配置参数
+const CONFIG = {
+    baseSpeed: 0.5, // 基础公转速度
+    starCount: 400,
+    resolutionMultiplier: 2, // 2K屏适配
+    bgColor: '#f8fafc',
+    orbitColor: 'rgba(148, 163, 184, 0.4)', // slate-400 with opacity
+};
+
+// 天体数据 (为了视觉效果，大小和距离并非严格按比例，而是经过对数调整的“视觉比例”)
+const PLANETS = [
+    { name: "Sun",     type: "star",   color: ["#fbbf24", "#f59e0b"], size: 60, dist: 0,    speed: 0 },
+    { name: "Mercury", type: "planet", color: ["#94a3b8", "#64748b"], size: 6,  dist: 100,  speed: 4.1 },
+    { name: "Venus",   type: "planet", color: ["#fcd34d", "#d97706"], size: 11, dist: 150,  speed: 1.6 },
+    { name: "Earth",   type: "planet", color: ["#3b82f6", "#1d4ed8"], size: 12, dist: 220,  speed: 1.0, hasMoon: true },
+    { name: "Mars",    type: "planet", color: ["#f87171", "#b91c1c"], size: 8,  dist: 300,  speed: 0.53 },
+    { name: "Jupiter", type: "planet", color: ["#fdba74", "#c2410c"], size: 40, dist: 550,  speed: 0.08 },
+    { name: "Saturn",  type: "planet", color: ["#fde047", "#eab308"], size: 34, dist: 750,  speed: 0.03, hasRings: true },
+    { name: "Uranus",  type: "planet", color: ["#67e8f9", "#06b6d4"], size: 20, dist: 950,  speed: 0.01 },
+    { name: "Neptune", type: "planet", color: ["#6366f1", "#4338ca"], size: 19, dist: 1100, speed: 0.006 }
+];
+
+// 剧本：时间轴控制 (Narrative Script)
+const SCRIPT = [
+    { time: 0,   dur: 4, target: "Sun",     zoom: 1.5,  cn: "欢迎来到我们的家园，太阳系。", en: "Welcome to our home, the Solar System." },
+    { time: 4,   dur: 5, target: "Sun",     zoom: 2.5,  cn: "太阳占据了整个星系99.86%的质量，是绝对的主宰。", en: "The Sun holds 99.86% of the system's mass. The absolute ruler." },
+    { time: 9,   dur: 6, target: "Inner",   zoom: 1.2,  cn: "靠近太阳的是四颗岩石行星，它们渺小而坚硬。", en: "Huddled close are the four rocky worlds. Small and resilient." },
+    { time: 15,  dur: 5, target: "Earth",   zoom: 4.0,  cn: "这是地球，我们在宇宙中唯一的避风港。", en: "Here is Earth. Our only shelter in the vast cosmos." },
+    { time: 20,  dur: 6, target: "Mars",    zoom: 3.0,  cn: "火星，红色的邻居，也是我们未来的探索之地。", en: "Mars, the red neighbor. The frontier of our future." },
+    { time: 26,  dur: 2, target: "Overview",zoom: 0.6,  cn: "跨越小行星带，视野豁然开朗……", en: "Crossing the asteroid belt, the view expands..." },
+    { time: 28,  dur: 7, target: "Jupiter", zoom: 1.8,  cn: "气态巨行星登场。木星，巨大的风暴守护者。", en: "Enter the Gas Giants. Jupiter, the colossal guardian of storms." },
+    { time: 35,  dur: 7, target: "Saturn",  zoom: 2.0,  cn: "土星，戴着太阳系最耀眼的指环。", en: "Saturn, wearing the most dazzling rings in the system." },
+    { time: 42,  dur: 6, target: "Outer",   zoom: 0.5,  cn: "在寒冷的边缘，天王星与海王星缓慢地巡游。", en: "At the frozen edge, Uranus and Neptune patrol slowly." },
+    { time: 48,  dur: 8, target: "All",     zoom: 0.3,  cn: "在这宏大的尺度下，人类微不足道，却又无比珍贵。", en: "On this scale, we are insignificant, yet infinitely precious." },
+    { time: 56,  dur: 2, target: "All",     zoom: 0.1,  cn: "End.", en: "" }
+];
+
+// 状态变量
+let canvas, ctx;
+let w, h;
+let startTime = null;
+let currentSceneIndex = -1;
+let camera = { x: 0, y: 0, zoom: 1 };
+let particles = [];
+
+// 初始化
+window.onload = () => {
+    initCanvas();
+    initParticles();
+    
+    // 延迟启动动画，给用户一点时间看标题
+    setTimeout(() => {
+        document.getElementById('intro-overlay').style.opacity = 0;
+        setTimeout(() => {
+            document.getElementById('intro-overlay').style.display = 'none';
+            document.getElementById('subtitles').classList.remove('hidden');
+            startTime = Date.now();
+            requestAnimationFrame(loop);
+        }, 1500);
+    }, 2500);
+};
+
+window.onresize = initCanvas;
+
+function initCanvas() {
+    canvas = document.getElementById('spaceCanvas');
+    ctx = canvas.getContext('2d');
+    // 高清屏适配
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w * CONFIG.resolutionMultiplier;
+    canvas.height = h * CONFIG.resolutionMultiplier;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.scale(CONFIG.resolutionMultiplier, CONFIG.resolutionMultiplier);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+}
+
+function initParticles() {
+    particles = [];
+    for(let i=0; i<CONFIG.starCount; i++) {
+        particles.push({
+            x: (Math.random() - 0.5) * 3000,
+            y: (Math.random() - 0.5) * 3000,
+            size: Math.random() * 1.5,
+            alpha: Math.random() * 0.5 + 0.1,
+            speed: Math.random() * 0.2
+        });
+    }
+}
+
+// 核心循环
+function loop() {
+    const now = Date.now();
+    const elapsed = (now - startTime) / 1000; // 秒
+    
+    updateScene(elapsed);
+    updatePhysics(elapsed);
+    render();
+
+    // 更新进度条
+    const totalTime = SCRIPT[SCRIPT.length-1].time + SCRIPT[SCRIPT.length-1].dur;
+    const progress = Math.min((elapsed / totalTime) * 100, 100);
+    document.getElementById('progress').style.width = progress + '%';
+
+    if (elapsed < totalTime + 2) {
+        requestAnimationFrame(loop);
+    }
+}
+
+// 场景调度系统
+function updateScene(elapsed) {
+    // 查找当前剧本
+    const sceneIdx = SCRIPT.findIndex(s => elapsed >= s.time && elapsed < s.time + s.dur);
+    
+    if (sceneIdx !== -1 && sceneIdx !== currentSceneIndex) {
+        currentSceneIndex = sceneIdx;
+        const scene = SCRIPT[sceneIdx];
+        
+        // 更新字幕
+        const subCn = document.getElementById('sub-cn');
+        const subEn = document.getElementById('sub-en');
+        const container = document.getElementById('subtitles');
+        
+        container.style.opacity = 0;
+        
+        setTimeout(() => {
+            subCn.innerText = scene.cn;
+            subEn.innerText = scene.en;
+            container.style.opacity = 1;
+        }, 400);
+    }
+
+    // 摄像机平滑插值 logic
+    if (currentSceneIndex !== -1) {
+        const scene = SCRIPT[currentSceneIndex];
+        let targetX = 0, targetY = 0;
+
+        // 计算目标位置
+        if (scene.target === "Sun" || scene.target === "All") {
+            targetX = 0; targetY = 0;
+        } else if (scene.target === "Inner") {
+            targetX = 0; targetY = 0; // 聚焦中心但缩放不同
+        } else if (scene.target === "Outer") {
+            targetX = 0; targetY = 0; 
+        } else if (scene.target === "Overview") {
+            targetX = 0; targetY = 0;
+        } else {
+            // 追踪特定行星
+            const p = PLANETS.find(p => p.name === scene.target);
+            if (p) {
+                // 预测那一刻行星的位置 (为了平滑，直接取当前位置)
+                const angle = elapsed * p.speed * CONFIG.baseSpeed;
+                targetX = Math.cos(angle) * p.dist;
+                targetY = Math.sin(angle) * p.dist;
+            }
+        }
+
+        // Lerp 摄像机
+        const smooth = 0.05;
+        camera.x += (targetX - camera.x) * smooth;
+        camera.y += (targetY - camera.y) * smooth;
+        camera.zoom += (scene.zoom - camera.zoom) * smooth;
+    }
+}
+
+// 物理位置更新
+function updatePhysics(elapsed) {
+    PLANETS.forEach(p => {
+        p.angle = elapsed * p.speed * CONFIG.baseSpeed;
+        p.x = Math.cos(p.angle) * p.dist;
+        p.y = Math.sin(p.angle) * p.dist;
+    });
+}
+
+// 渲染系统
+function render() {
+    // 清空
+    ctx.fillStyle = CONFIG.bgColor;
+    ctx.fillRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+
+    ctx.save();
+    
+    // 应用摄像机变换
+    // 1. 移动到屏幕中心
+    ctx.translate(cx, cy);
+    // 2. 缩放
+    ctx.scale(camera.zoom, camera.zoom);
+    // 3. 逆向移动摄像机坐标
+    ctx.translate(-camera.x, -camera.y);
+
+    // --- 绘制背景网格 (Blueprint style) ---
+    drawGrid();
+    
+    // --- 绘制粒子 (Star Dust) ---
+    drawParticles();
+
+    // --- 绘制轨道 ---
+    ctx.lineWidth = 1 / camera.zoom; // 保持轨道线条在缩放时粗细一致
+    PLANETS.forEach(p => {
+        if (p.dist === 0) return;
+        ctx.beginPath();
+        ctx.strokeStyle = CONFIG.orbitColor;
+        ctx.arc(0, 0, p.dist, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+
+    // --- 绘制天体 ---
+    PLANETS.forEach(p => {
+        // 1. 轨道拖尾 (Comet tail effect)
+        if (p.dist > 0) {
+            ctx.beginPath();
+            const tailLen = 0.8; // 弧度
+            const grad = ctx.createLinearGradient(
+                p.x, p.y, 
+                Math.cos(p.angle - tailLen)*p.dist, Math.sin(p.angle - tailLen)*p.dist
+            );
+            grad.addColorStop(0, p.color[0]);
+            grad.addColorStop(1, "transparent");
+            
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = p.size * 0.8;
+            ctx.lineCap = "round";
+            // 只画一段弧
+            ctx.arc(0, 0, p.dist, p.angle - tailLen, p.angle);
+            ctx.stroke();
+        }
+
+        // 2. 行星本体
+        ctx.save();
+        ctx.translate(p.x, p.y);
+
+        // 阴影 (背对太阳的一侧)
+        // 简单的光照向量是 p.x, p.y 的反方向
+        
+        if (p.name === "Sun") {
+            // 太阳发光特效
+            const sunGlow = ctx.createRadialGradient(0, 0, p.size * 0.2, 0, 0, p.size * 3);
+            sunGlow.addColorStop(0, p.color[0]);
+            sunGlow.addColorStop(0.2, p.color[1]);
+            sunGlow.addColorStop(0.5, "rgba(251, 191, 36, 0.2)"); // Amber-400 transparent
+            sunGlow.addColorStop(1, "transparent");
+            ctx.fillStyle = sunGlow;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 3, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.fillStyle = "#fff"; // 核心亮白
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.8, 0, Math.PI*2);
+            ctx.fill();
+        } else {
+            // 土星光环
+            if (p.hasRings) {
+                ctx.save();
+                ctx.rotate(Math.PI / 6); // 倾斜
+                ctx.beginPath();
+                ctx.ellipse(0, 0, p.size * 2.2, p.size * 0.6, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(253, 224, 71, 0.6)";
+                ctx.lineWidth = p.size * 0.4;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 星球实体
+            const planetGrad = ctx.createRadialGradient(-p.size*0.3, -p.size*0.3, 0, 0, 0, p.size);
+            planetGrad.addColorStop(0, p.color[0]);
+            planetGrad.addColorStop(1, p.color[1]);
+            ctx.fillStyle = planetGrad;
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 自身阴影（模拟背光面）
+            const shadowGrad = ctx.createRadialGradient(0, 0, p.size*0.8, 0, 0, p.size);
+            shadowGrad.addColorStop(0, "transparent");
+            shadowGrad.addColorStop(1, "rgba(15, 23, 42, 0.3)");
+            ctx.fillStyle = shadowGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size, 0, Math.PI*2);
+            ctx.fill();
+
+            // 月球
+            if (p.hasMoon) {
+                const moonAngle = Date.now() / 500;
+                const mx = Math.cos(moonAngle) * (p.size * 2.5);
+                const my = Math.sin(moonAngle) * (p.size * 2.5);
+                ctx.fillStyle = "#94a3b8";
+                ctx.beginPath();
+                ctx.arc(mx, my, p.size * 0.25, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // 标签 (当放大到一定程度显示)
+        if (camera.zoom > 0.4 || p.name === "Sun") {
+            ctx.fillStyle = "#475569";
+            ctx.font = `600 ${14 / camera.zoom}px 'Cinzel'`; // 文字随缩放反向调整，保持视觉大小
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(p.name, 0, p.size + (20/camera.zoom));
+        }
+
+        ctx.restore();
+    });
+
+    ctx.restore();
+}
+
+function drawGrid() {
+    // 绘制非常淡的网格背景，增加空间感
+    ctx.strokeStyle = "rgba(203, 213, 225, 0.3)"; // slate-300 very low opacity
+    ctx.lineWidth = 1 / camera.zoom;
+    const step = 200;
+    const range = 2000;
+    
+    ctx.beginPath();
+    for (let x = -range; x <= range; x += step) {
+        ctx.moveTo(x, -range);
+        ctx.lineTo(x, range);
+    }
+    for (let y = -range; y <= range; y += step) {
+        ctx.moveTo(-range, y);
+        ctx.lineTo(range, y);
+    }
+    ctx.stroke();
+}
+
+function drawParticles() {
+    ctx.fillStyle = "#94a3b8";
+    PLANETS.forEach(p => {
+        // 视差背景粒子逻辑：这里简单处理为跟随摄像机反向微动
+    });
+    
+    particles.forEach(pt => {
+        ctx.globalAlpha = pt.alpha;
+        // 简单的视差
+        const px = pt.x;
+        const py = pt.y;
+        
+        ctx.beginPath();
+        ctx.arc(px, py, pt.size / camera.zoom, 0, Math.PI*2); // 粒子大小随zoom变化，产生景深感
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+}
+
+</script>
+</body>
+</html>

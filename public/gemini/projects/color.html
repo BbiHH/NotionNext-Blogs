@@ -5,17 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>色彩心理学 - ChromaticMind</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide 图标库 -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* 基础设置 */
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
         
-        /* 平滑过渡 */
+        /* 1. 基础类定义 (Base) - 默认隐藏 */
+        .scene-container { 
+            position: absolute; 
+            inset: 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            pointer-events: none; 
+            opacity: 0; 
+            transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease;
+            transform: scale(0.95);
+            filter: blur(10px);
+        }
+
+        /* 2. 状态类定义 (State) - 必须在基础类之后定义以覆盖样式 */
+        .scene-active { 
+            opacity: 1 !important; 
+            pointer-events: auto; 
+            transform: scale(1) !important; 
+            filter: blur(0) !important;
+        }
+
+        /* 平滑过渡背景 */
         .transition-bg { transition: background-color 1s ease-in-out, color 1s ease-in-out; }
-        .fade-enter { opacity: 0; transform: scale(0.95); filter: blur(10px); transition: opacity 1s ease, transform 1s ease, filter 1s ease; }
-        .fade-enter-active { opacity: 1; transform: scale(1); filter: blur(0); }
-        .fade-exit { opacity: 1; transform: scale(1); filter: blur(0); transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease; }
-        .fade-exit-active { opacity: 0; transform: scale(1.05); filter: blur(10px); }
 
         /* 关键帧动画定义 */
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -28,15 +47,12 @@
             66% { transform: translate(-20px, 20px) rotate(240deg) scale(0.9); }
             100% { transform: translate(0, 0) rotate(360deg) scale(1); }
         }
-        @keyframes ray-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes bounce-dots { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         
-        /* 工具类 */
+        /* 动画工具类 */
         .animate-spin-slow { animation: spin 20s linear infinite; }
         .animate-spin-reverse { animation: spin-reverse 20s linear infinite; }
         .animate-pulse-heart { animation: pulse-scale 0.8s ease-in-out infinite; }
-        .scene-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; }
-        .scene-active { opacity: 1; pointer-events: auto; }
 
         /* 特殊形状 */
         .blob { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
@@ -63,8 +79,8 @@
     <main class="w-full h-full relative flex items-center justify-center overflow-hidden">
         
         <!-- 1. Intro Scene -->
-        <div id="scene-intro" class="scene-container fade-enter-active">
-            <div class="relative w-64 h-64 md:w-96 md:h-96 transition-transform duration-[2000ms]">
+        <div id="scene-intro" class="scene-container scene-active">
+            <div class="relative w-64 h-64 md:w-96 md:h-96">
                 <div class="absolute inset-0 rounded-full border-4 border-slate-200/50 animate-spin-slow"></div>
                 <div class="absolute inset-4 rounded-full border-[1px] border-slate-300/30 flex items-center justify-center animate-spin-reverse">
                     <div class="w-4 h-4 bg-slate-800 rounded-full relative">
@@ -128,9 +144,8 @@
         <!-- 4. Yellow Scene -->
         <div id="scene-yellow" class="scene-container">
             <div class="relative flex items-center justify-center">
-                <!-- 旋转光芒 -->
-                <div class="absolute inset-0 flex items-center justify-center animate-spin-slow" style="width: 200vw; height: 200vw;">
-                    <!-- 通过 JS 生成光芒 -->
+                <!-- 旋转光芒 (JS生成) -->
+                <div class="absolute inset-0 flex items-center justify-center animate-spin-slow" style="width: 200vw; height: 200vw; z-index: 0;">
                     <div id="yellow-rays" class="w-full h-full relative"></div>
                 </div>
 
@@ -339,38 +354,18 @@
             // 2. Logo 颜色
             logoText.className = `text-2xl font-bold tracking-wider uppercase transition-colors duration-1000 ${scene.accentText}`;
 
-            // 3. 切换主视觉 (Fade in/out)
+            // 3. 切换主视觉 (Simplified Logic to avoid CSS conflicts)
             document.querySelectorAll('.scene-container').forEach((el, i) => {
                 if (i === index) {
-                    el.classList.remove('fade-exit', 'fade-exit-active');
-                    el.style.display = 'flex';
-                    // 强制回流以触发 transition
-                    void el.offsetWidth; 
-                    el.classList.add('fade-enter');
-                    requestAnimationFrame(() => {
-                        el.classList.add('fade-enter-active');
-                        el.classList.remove('fade-enter');
-                    });
+                    el.classList.add('scene-active');
+                    // 重新创建图标以确保渲染
+                    lucide.createIcons();
                 } else {
-                    // 仅对当前可见的执行退出动画
-                    if (el.classList.contains('fade-enter-active') || el.style.display === 'flex') {
-                         el.classList.add('fade-exit');
-                         requestAnimationFrame(() => {
-                             el.classList.add('fade-exit-active');
-                             el.classList.remove('fade-enter-active');
-                         });
-                         // 动画结束后隐藏
-                         setTimeout(() => {
-                             if (i !== currentIndex) el.style.display = 'none';
-                             el.classList.remove('fade-exit', 'fade-exit-active');
-                         }, 800);
-                    } else {
-                        el.style.display = 'none';
-                    }
+                    el.classList.remove('scene-active');
                 }
             });
 
-            // 4. 字幕更新 (简单的淡入淡出)
+            // 4. 字幕更新
             textContainer.style.opacity = 0;
             setTimeout(() => {
                 subtitleEn.textContent = scene.subtitles.en;
@@ -444,6 +439,7 @@
 
         // 启动
         window.onload = () => {
+            lucide.createIcons();
             updateSceneVisuals(0);
             loop();
         };

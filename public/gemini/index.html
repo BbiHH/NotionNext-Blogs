@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini 灵感工坊 | 我的创意角落</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide 图标库 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #f3f4f6;
+            background-image: 
+                radial-gradient(at 40% 20%, hsla(28,100%,74%,0.1) 0px, transparent 50%),
+                radial-gradient(at 80% 0%, hsla(189,100%,56%,0.1) 0px, transparent 50%),
+                radial-gradient(at 0% 50%, hsla(340,100%,76%,0.1) 0px, transparent 50%);
+            min-height: 100vh;
+        }
+
+        /* 隐藏滚动条但允许滚动 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .fun-font {
+            font-family: 'ZCOOL KuaiLe', cursive;
+        }
+
+        /* 模态框动画 */
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-animateing {
+            animation: modalIn 0.2s ease-out forwards;
+        }
+        
+        /* 录制中的红点动画 */
+        .recording-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
+</head>
+<body class="text-gray-700">
+
+    <!-- 导航栏 -->
+    <nav class="glass-nav fixed top-0 w-full z-40 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <div class="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg text-white shadow-md">
+                <i data-lucide="sparkles" size="20"></i>
+            </div>
+            <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600 fun-font tracking-wider">
+                Gemini 灵感工坊
+            </span>
+        </div>
+        <div class="hidden md:flex items-center space-x-6 text-sm font-medium text-gray-500">
+            <a href="#" class="hover:text-purple-600 transition-colors">关于我</a>
+            <a href="#" class="hover:text-purple-600 transition-colors">使用指南</a>
+            <button class="bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors text-xs">
+                联系作者
+            </button>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+        
+        <!-- 每日灵感 / 欢迎区 -->
+        <section class="mb-12 bg-white rounded-3xl p-8 shadow-sm border border-white/50 relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-yellow-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-pulse"></div>
+            <div class="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-pulse" style="animation-delay: 2s"></div>
+            
+            <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div>
+                    <div class="flex items-center gap-2 text-yellow-600 font-medium mb-2 text-sm">
+                        <i data-lucide="sun" size="16"></i>
+                        <span>今日灵感小签</span>
+                    </div>
+                    <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-3 fun-font" id="daily-quote">
+                        "好奇心是通往新世界的钥匙。"
+                    </h1>
+                    <p class="text-gray-500 max-w-2xl">
+                        这里存放着我与 Gemini 对话中诞生的奇思妙想。每一个卡片背后，都藏着一个小知识或是一段有趣的互动代码。
+                    </p>
+                </div>
+                <div class="bg-white/80 backdrop-blur p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                    <div class="bg-blue-100 p-3 rounded-full text-blue-600">
+                        <i data-lucide="code-2" size="24"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-bold tracking-wide">项目总数</p>
+                        <p class="text-2xl font-bold text-gray-800" id="total-count">0</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 筛选分类 -->
+        <div class="flex flex-wrap gap-3 mb-8 overflow-x-auto no-scrollbar pb-2" id="filter-container">
+            <button class="filter-btn active px-5 py-2 rounded-full text-sm font-medium bg-gray-900 text-white shadow-lg transform transition-transform hover:scale-105" data-category="all">
+                全部展示
+            </button>
+            <button class="filter-btn px-5 py-2 rounded-full text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 transition-colors" data-category="animation">
+                ✨ 神奇动画
+            </button>
+            <button class="filter-btn px-5 py-2 rounded-full text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 transition-colors" data-category="knowledge">
+                📚 知识讲解
+            </button>
+            <button class="filter-btn px-5 py-2 rounded-full text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 transition-colors" data-category="tool">
+                🛠️ 实用小工具
+            </button>
+             <button class="filter-btn px-5 py-2 rounded-full text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 transition-colors" data-category="game">
+                🎮 迷你游戏
+            </button>
+        </div>
+
+        <!-- 卡片网格 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="projects-grid">
+            <!-- 卡片将通过 JS 动态插入 -->
+        </div>
+
+        <!-- 空状态提示 (默认隐藏) -->
+        <div id="empty-state" class="hidden text-center py-20">
+            <div class="inline-block p-4 bg-gray-100 rounded-full mb-4">
+                <i data-lucide="search" size="32" class="text-gray-400"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900">没有找到相关项目</h3>
+            <p class="text-gray-500">换个分类试试看吧！</p>
+        </div>
+
+    </main>
+
+    <!-- 底部 -->
+    <footer class="bg-white border-t border-gray-100 py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
+            <div class="text-sm text-gray-500 mb-4 md:mb-0">
+                &copy; 2023 Gemini 灵感工坊. 所有的代码都充满了爱与逻辑。
+            </div>
+            <div class="flex space-x-4">
+                <a href="#" class="text-gray-400 hover:text-purple-600 transition-colors"><i data-lucide="github" size="20"></i></a>
+                <a href="#" class="text-gray-400 hover:text-purple-600 transition-colors"><i data-lucide="twitter" size="20"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 模拟应用打开的模态框 -->
+    <div id="app-modal" class="fixed inset-0 z-50 hidden">
+        <!-- 背景遮罩 -->
+        <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        
+        <!-- 模态框内容 -->
+        <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <div class="bg-white w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl flex flex-col pointer-events-auto modal-animateing relative overflow-hidden">
+                
+                <!-- 模态框头部 -->
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+                    <div class="flex items-center gap-3">
+                        <div id="modal-icon" class="p-2 rounded-lg bg-gray-100 text-gray-600"></div>
+                        <div>
+                            <h2 id="modal-title" class="text-lg font-bold text-gray-800">标题</h2>
+                            <p class="text-xs text-gray-500">由 Gemini 辅助生成</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧操作栏 -->
+                    <div class="flex items-center gap-2">
+                        <!-- 录制按钮 (新增) -->
+                        <button id="record-btn" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-gray-500 hover:bg-purple-50 hover:text-purple-600 transition-colors text-sm font-medium border border-transparent hover:border-purple-100" onclick="toggleRecording()" title="录制屏幕为视频">
+                            <i data-lucide="video" size="18"></i>
+                            <span id="record-text" class="hidden sm:inline">录制视频</span>
+                        </button>
+                        
+                        <div class="w-px h-4 bg-gray-200 mx-2"></div>
+
+                        <button class="text-gray-400 hover:text-gray-600 transition-colors p-1" onclick="toggleFullscreen()" title="全屏">
+                            <i data-lucide="maximize-2" size="20"></i>
+                        </button>
+                        <button class="bg-gray-100 hover:bg-red-50 hover:text-red-500 text-gray-500 p-2 rounded-full transition-colors ml-2" onclick="closeModal()" title="关闭">
+                            <i data-lucide="x" size="20"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 模态框主体 (iframe 模拟区) -->
+                <div class="flex-1 bg-gray-50 relative flex flex-col items-center justify-center overflow-hidden">
+                    
+                    <!-- iframe 用于显示真实网页 -->
+                    <iframe id="project-iframe" class="w-full h-full hidden bg-white" frameborder="0"></iframe>
+
+                    <!-- 模拟占位符 -->
+                    <div id="modal-content-placeholder" class="text-center p-8">
+                        <div class="inline-block p-6 rounded-full bg-white shadow-sm mb-6 animate-bounce">
+                            <i data-lucide="loader-2" size="48" class="text-purple-500 animate-spin"></i>
+                        </div>
+                        <h3 class="text-xl font-medium text-gray-700 mb-2">正在加载创意模块...</h3>
+                        <p class="text-gray-500 max-w-md mx-auto">
+                            在真实环境中，这里将加载你生成的独立 HTML 文件。<br>
+                            <span class="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded mt-2 inline-block">演示模式：点击左上角关闭</span>
+                        </p>
+                        
+                        <!-- 模拟的演示内容 -->
+                        <div class="mt-8 p-6 bg-white rounded-xl shadow-inner border border-gray-100 max-w-2xl mx-auto text-left hidden" id="mock-demo-content">
+                            <h4 class="font-bold text-gray-800 mb-2">演示：<span id="demo-title"></span></h4>
+                            <p class="text-gray-600 text-sm leading-relaxed" id="demo-desc"></p>
+                            <div class="mt-4 h-32 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-dashed border-indigo-200 flex items-center justify-center text-indigo-300">
+                                [ 动画交互区域占位符 ]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 项目数据 (模拟数据库)
+        const projects = [
+            {
+                id: 1,
+                title: "太阳系微缩模型",
+                url: "./projects/gang.html",
+                desc: "一个纯 CSS+JS 实现的太阳系行星公转演示，点击星球可以查看它的物理参数。",
+                category: "knowledge",
+                icon: "orbit",
+                color: "from-blue-500 to-indigo-600",
+                tags: ["物理", "天文", "3D动画"],
+                date: "2023-10-05"
+            },
+            {
+                id: 2,
+                title: "4-7-8 呼吸冥想",
+                desc: "帮助放松的视觉引导工具。圆圈随着呼吸节奏放大缩小，带有舒缓的配色。",
+                category: "tool",
+                icon: "wind",
+                color: "from-teal-400 to-emerald-500",
+                tags: ["健康", "放松", "生活"],
+                date: "2023-10-08"
+            },
+            {
+                id: 3,
+                title: "斐波那契螺旋",
+                desc: "展示黄金分割在自然界中的美妙。通过生成无数个正方形绘制出完美的螺旋线。",
+                category: "animation",
+                icon: "snail",
+                color: "from-amber-400 to-orange-500",
+                tags: ["数学", "几何", "美学"],
+                date: "2023-10-12"
+            },
+            {
+                id: 4,
+                title: "番茄工作法计时器",
+                desc: "带有白噪音背景音的专注计时器。每完成一个番茄钟，界面会长出一颗像素小树。",
+                category: "tool",
+                icon: "timer",
+                color: "from-red-400 to-rose-500",
+                tags: ["效率", "工具", "像素风"],
+                date: "2023-10-15"
+            },
+            {
+                id: 5,
+                title: "色彩心理学",
+                desc: "交互式色卡。点击颜色，不仅会全屏变色，还会告诉你这种颜色代表的情绪和含义。",
+                category: "knowledge",
+                icon: "palette",
+                color: "from-pink-400 to-purple-500",
+                tags: ["设计", "心理学", "互动"],
+                date: "2023-10-20"
+            },
+            {
+                id: 6,
+                title: "打字机诗歌生成",
+                desc: "一个复古风格的网页，根据你输入的关键词，Gemini 实时生成一首三行诗并逐字打印。",
+                category: "tool",
+                icon: "type",
+                color: "from-gray-600 to-gray-800",
+                tags: ["文学", "AI", "复古"],
+                date: "2023-10-22"
+            },
+            {
+                id: 7,
+                title: "细胞分裂模拟",
+                desc: "生物课小助手。观察一个细胞如何进行有丝分裂，你可以控制分裂的速度。",
+                category: "knowledge",
+                icon: "activity",
+                color: "from-green-400 to-lime-500",
+                tags: ["生物", "科普", "仿真"],
+                date: "2023-10-25"
+            },
+            {
+                id: 8,
+                title: "贪吃蛇 (AI 对战版)",
+                desc: "不是你玩，而是看 AI 怎么玩贪吃蛇。它会自动寻找最短路径吃到苹果。",
+                category: "game",
+                icon: "gamepad-2",
+                color: "from-violet-500 to-fuchsia-500",
+                tags: ["算法", "游戏", "观察"],
+                date: "2023-10-28"
+            }
+        ];
+
+        const quotes = [
+            "“知识不是为了储存，而是为了创造。”",
+            "“每一个复杂的系统，都源于一个简单的开始。”",
+            "“代码是写给机器的情书，也是写给人类的逻辑诗。”",
+            "“今天也要保持好奇心哦！”",
+            "“生活中的小确幸，往往藏在细节的代码里。”"
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderProjects(projects);
+            setupFilters();
+            lucide.createIcons();
+            document.getElementById('total-count').textContent = projects.length;
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('daily-quote').textContent = randomQuote;
+        });
+
+        function renderProjects(data) {
+            const grid = document.getElementById('projects-grid');
+            grid.innerHTML = '';
+            if (data.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                return;
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+            }
+            data.forEach(project => {
+                const card = document.createElement('div');
+                card.className = 'group bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-100 overflow-hidden card-hover cursor-pointer flex flex-col';
+                card.onclick = () => openModal(project);
+                const tagsHtml = project.tags.map(tag => `<span class="text-[10px] px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium">${tag}</span>`).join('');
+                card.innerHTML = `
+                    <div class="h-40 bg-gradient-to-br ${project.color} relative flex items-center justify-center overflow-hidden">
+                        <div class="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                        <i data-lucide="${project.icon}" size="48" class="text-white drop-shadow-md transform group-hover:scale-110 transition-transform duration-500"></i>
+                        <div class="absolute bottom-3 right-3 bg-white/20 backdrop-blur-md px-2 py-1 rounded text-white text-xs font-mono">
+                            Click to Open
+                        </div>
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-bold text-gray-800 group-hover:text-purple-600 transition-colors">${project.title}</h3>
+                        </div>
+                        <p class="text-gray-500 text-sm leading-relaxed mb-4 flex-1">${project.desc}</p>
+                        <div class="flex items-center gap-2 mt-auto pt-4 border-t border-gray-50">
+                            ${tagsHtml}
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function setupFilters() {
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    buttons.forEach(b => {
+                        b.classList.remove('bg-gray-900', 'text-white', 'shadow-lg');
+                        b.classList.add('bg-white', 'text-gray-600', 'hover:bg-gray-50');
+                    });
+                    btn.classList.remove('bg-white', 'text-gray-600', 'hover:bg-gray-50');
+                    btn.classList.add('bg-gray-900', 'text-white', 'shadow-lg');
+                    const category = btn.dataset.category;
+                    if (category === 'all') {
+                        renderProjects(projects);
+                    } else {
+                        const filtered = projects.filter(p => p.category === category);
+                        renderProjects(filtered);
+                    }
+                });
+            });
+        }
+
+        function openModal(project) {
+            const modal = document.getElementById('app-modal');
+            const title = document.getElementById('modal-title');
+            const icon = document.getElementById('modal-icon');
+            const iframe = document.getElementById('project-iframe');
+            const placeholder = document.getElementById('modal-content-placeholder');
+            const mockContent = document.getElementById('mock-demo-content');
+            const demoTitle = document.getElementById('demo-title');
+            const demoDesc = document.getElementById('demo-desc');
+            
+            title.textContent = project.title;
+            icon.innerHTML = `<i data-lucide="${project.icon}" size="24"></i>`;
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+
+            if (project.url) {
+                iframe.src = project.url;
+                iframe.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                iframe.classList.add('hidden');
+                iframe.src = ""; 
+                placeholder.classList.remove('hidden');
+                demoTitle.textContent = project.title;
+                demoDesc.textContent = project.desc;
+                mockContent.classList.add('hidden'); 
+                setTimeout(() => {
+                    mockContent.classList.remove('hidden');
+                    mockContent.classList.add('animate-fade-in-up'); 
+                }, 800);
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('app-modal');
+            modal.classList.add('hidden');
+            const iframe = document.getElementById('project-iframe');
+            if (iframe) iframe.src = "";
+            
+            // 如果正在录制，尝试停止
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                toggleRecording(); // 这会触发停止
+            }
+        }
+
+        function toggleFullscreen() {
+            const elem = document.getElementById('app-modal').querySelector('.modal-animateing');
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // --- 录制功能逻辑 ---
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+
+        async function toggleRecording() {
+            const btn = document.getElementById('record-btn');
+            const btnText = document.getElementById('record-text');
+
+            if (!isRecording) {
+                // 开始录制
+                try {
+                    // 请求屏幕分享
+                    const stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: { mediaSource: 'screen' }, // 或 'tab'
+                        audio: true
+                    });
+
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    mediaRecorder.ondataavailable = function(e) {
+                        if (e.data.size > 0) {
+                            recordedChunks.push(e.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = function() {
+                        // 停止后生成文件
+                        const blob = new Blob(recordedChunks, {
+                            type: "video/webm"
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        document.body.appendChild(a);
+                        a.style = "display: none";
+                        a.href = url;
+                        a.download = "gemini-inspiration-recording.webm"; // 下载文件名
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        
+                        // 重置状态
+                        recordedChunks = [];
+                        isRecording = false;
+                        resetRecordButton(btn, btnText);
+                        
+                        // 停止所有轨道（关闭浏览器分享条）
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    // 用户点击浏览器自带的“停止共享”条时触发
+                    stream.getVideoTracks()[0].onended = function() {
+                        if (mediaRecorder.state !== 'inactive') {
+                            mediaRecorder.stop();
+                        }
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // 更新 UI 为录制中状态
+                    btn.classList.remove('text-gray-500', 'hover:bg-purple-50', 'hover:text-purple-600');
+                    btn.classList.add('text-red-600', 'bg-red-50', 'border-red-100');
+                    btnText.innerHTML = '<span class="recording-dot"></span>停止录制';
+
+                } catch (err) {
+                    console.error("Error: " + err);
+                    // 用户取消选择时通常会抛出 NotAllowedError
+                    if (err.name !== 'NotAllowedError') {
+                        alert("无法启动录制。请确保您使用的是 HTTPS 或 localhost 环境，且浏览器支持屏幕录制。");
+                    }
+                }
+            } else {
+                // 停止录制
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+            }
+        }
+
+        function resetRecordButton(btn, btnText) {
+            btn.classList.remove('text-red-600', 'bg-red-50', 'border-red-100');
+            btn.classList.add('text-gray-500', 'hover:bg-purple-50', 'hover:text-purple-600');
+            btnText.innerHTML = '录制视频';
+        }
+    </script>
+</body>
+</html>

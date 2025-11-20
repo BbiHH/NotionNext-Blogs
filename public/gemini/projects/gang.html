@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>什么是杠精 - What is a Contrarian?</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;500;700&family=Noto+Sans:wght@400;700&display=swap');
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #FDFBF7; /* Warm Rice Paper */
+            font-family: 'Noto Sans', 'Noto Sans SC', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Loading overlay */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #FDFBF7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            font-size: 1.2rem;
+            color: #64748B;
+            transition: opacity 1s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">Loading Animation...</div>
+    <canvas id="stage"></canvas>
+
+<script>
+/**
+ * GANGJING EXPLAINER - ANIMATION ENGINE
+ * A single-file, high-performance Canvas animation.
+ */
+
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const loader = document.getElementById('loader');
+
+// --- CONFIGURATION & STATE ---
+
+const CONFIG = {
+    refWidth: 1920, // Reference resolution for logic
+    refHeight: 1080,
+    colors: {
+        bg: '#FDFBF7',      // Warm White
+        primary: '#6366F1', // Soft Indigo (Normal Person)
+        danger: '#F43F5E',  // Rose (Gangjing)
+        text: '#1E293B',    // Slate 800
+        subText: '#64748B', // Slate 500
+        accent: '#F59E0B',  // Amber
+        bar: '#475569'      // Slate 600 (The logical bar)
+    },
+    fonts: {
+        main: "700 {s}px 'Noto Sans SC'",
+        sub: "400 {s}px 'Noto Sans SC'",
+        caption: "500 {s}px 'Noto Sans SC'"
+    }
+};
+
+let state = {
+    w: window.innerWidth,
+    h: window.innerHeight,
+    scale: 1,
+    startTime: null,
+    time: 0, // Current time in seconds
+    sceneIndex: 0
+};
+
+// --- UTILS ---
+
+const ease = {
+    outElastic: (x) => {
+        const c4 = (2 * Math.PI) / 3;
+        return x === 0 ? 0 : x === 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
+    },
+    inOutQuad: (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2,
+    outQuint: (x) => 1 - Math.pow(1 - x, 5),
+    smoothstep: (min, max, value) => {
+        let x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+        return x * x * (3 - 2 * x);
+    }
+};
+
+function toRad(deg) { return deg * Math.PI / 180; }
+
+// --- DRAWING HELPERS ---
+
+function drawCircle(x, y, r, color, alpha = 1) {
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+}
+
+function drawSpikyShape(x, y, r, spikes, color, rotation = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.beginPath();
+    ctx.moveTo(0, 0 - r);
+    for (let i = 0; i < spikes; i++) {
+        ctx.rotate(Math.PI / spikes);
+        ctx.lineTo(0, 0 - (r * 0.5)); // Inner radius
+        ctx.rotate(Math.PI / spikes);
+        ctx.lineTo(0, 0 - r); // Outer radius
+    }
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawText(text, x, y, size, color, align = 'center', fontType = 'main') {
+    const fontSize = size * state.scale;
+    ctx.font = CONFIG.fonts[fontType].replace('{s}', fontSize);
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+}
+
+function drawBubble(text, x, y, w, h, isLeft = true) {
+    // Simple rounded rect speech bubble
+    const r = 20 * state.scale;
+    ctx.save();
+    ctx.translate(x, y);
+    
+    ctx.shadowColor = "rgba(0,0,0,0.1)";
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 10;
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.roundRect(-w/2, -h/2, w, h, r);
+    ctx.fill();
+
+    // Tail
+    ctx.beginPath();
+    if (isLeft) {
+        ctx.moveTo(-w/2 + r, h/2);
+        ctx.lineTo(-w/2 - 10 * state.scale, h/2 + 20 * state.scale);
+        ctx.lineTo(-w/2 + r * 2, h/2);
+    } else {
+        ctx.moveTo(w/2 - r, h/2);
+        ctx.lineTo(w/2 + 10 * state.scale, h/2 + 20 * state.scale);
+        ctx.lineTo(w/2 - r * 2, h/2);
+    }
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+
+    // Text inside
+    ctx.fillStyle = CONFIG.colors.text;
+    ctx.font = CONFIG.fonts.caption.replace('{s}', 24 * state.scale);
+    ctx.textAlign = 'center';
+    
+    // Simple text wrapping for bubble
+    const words = text.split(''); 
+    // Note: Chinese char wrapping logic is complex, simplifying for demo to max width
+    // Assume text fits for this controlled demo
+    ctx.fillText(text, 0, 0);
+    
+    ctx.restore();
+}
+
+function drawSubtitles(cn, en, progress) {
+    const yBottom = state.h - (state.h * 0.1);
+    const alpha = ease.smoothstep(0, 0.1, progress) * ease.smoothstep(1, 0.9, progress);
+    
+    if (alpha <= 0) return;
+
+    ctx.globalAlpha = alpha;
+    
+    // Background strip
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    const stripHeight = 140 * state.scale;
+    ctx.fillRect(0, yBottom - stripHeight/2, state.w, stripHeight);
+
+    // CN
+    ctx.font = `700 ${40 * state.scale}px 'Noto Sans SC'`;
+    ctx.fillStyle = CONFIG.colors.text;
+    ctx.textAlign = 'center';
+    ctx.fillText(cn, state.w / 2, yBottom - 20 * state.scale);
+
+    // EN
+    ctx.font = `400 ${24 * state.scale}px 'Noto Sans'`;
+    ctx.fillStyle = CONFIG.colors.subText;
+    ctx.fillText(en, state.w / 2, yBottom + 30 * state.scale);
+
+    ctx.globalAlpha = 1;
+}
+
+// --- SCENE DEFINITIONS ---
+
+const SCENES = [
+    {
+        duration: 5,
+        name: "Intro",
+        subCN: "什么是「杠精」？",
+        subEN: "What exactly is a 'Gangjing' (Contrarian/Troll)?",
+        render: (t, p) => {
+            // Dynamic abstract background
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+
+            // Draw big title
+            const floatY = Math.sin(t * 2) * 10;
+            drawText("什么是杠精", cx, cy - 50 * state.scale + floatY, 120, CONFIG.colors.text);
+            drawText("The Art of Being Contrary", cx, cy + 60 * state.scale + floatY, 40, CONFIG.colors.primary, 'center', 'sub');
+
+            // Circles expanding
+            const r = 400 * state.scale * ease.outQuint(p);
+            ctx.strokeStyle = CONFIG.colors.danger;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    },
+    {
+        duration: 7,
+        name: "Definition",
+        subCN: "杠精，指通过反驳别人来找存在感的人。",
+        subEN: "A person who argues purely for the sake of arguing to feel superior.",
+        render: (t, p) => {
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+
+            // Animation: A stick figure lifting a "Bar" (The visual pun of 抬杠)
+            const liftHeight = ease.inOutQuad(Math.sin(t * 3) * 0.5 + 0.5) * 100 * state.scale;
+            
+            // The Bar
+            const barW = 600 * state.scale;
+            const barY = cy - liftHeight;
+            ctx.fillStyle = CONFIG.colors.bar;
+            ctx.fillRect(cx - barW/2, barY, barW, 20 * state.scale);
+            
+            // Weights on the bar (Words: 逻辑 Logic / 事实 Fact)
+            drawCircle(cx - barW/2, barY + 10, 50 * state.scale, CONFIG.colors.primary);
+            drawText("逻辑", cx - barW/2, barY + 10, 20, '#FFF');
+            
+            drawCircle(cx + barW/2, barY + 10, 50 * state.scale, CONFIG.colors.primary);
+            drawText("事实", cx + barW/2, barY + 10, 20, '#FFF');
+
+            // The Character (Spiky Troll)
+            const trollY = cy + 150 * state.scale;
+            drawSpikyShape(cx, trollY, 60 * state.scale, 5, CONFIG.colors.danger, t);
+
+            // Arms
+            ctx.beginPath();
+            ctx.strokeStyle = CONFIG.colors.danger;
+            ctx.lineWidth = 8 * state.scale;
+            ctx.moveTo(cx - 30 * state.scale, trollY - 30 * state.scale);
+            ctx.lineTo(cx - 60 * state.scale, barY + 10 * state.scale); // Left hand
+            ctx.moveTo(cx + 30 * state.scale, trollY - 30 * state.scale);
+            ctx.lineTo(cx + 60 * state.scale, barY + 10 * state.scale); // Right hand
+            ctx.stroke();
+        }
+    },
+    {
+        duration: 8,
+        name: "Scenario_Setup",
+        subCN: "无论你说什么，他们总能找到刁钻的角度。",
+        subEN: "No matter what you say, they find a ridiculous angle to attack.",
+        render: (t, p) => {
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+            
+            // Normal person (Left)
+            const p1X = cx - 300 * state.scale;
+            const p1Y = cy + 100 * state.scale;
+            drawCircle(p1X, p1Y, 60 * state.scale, CONFIG.colors.primary);
+            
+            // Troll (Right) enters
+            const enterProgress = ease.outElastic(Math.min(1, p * 3)); // Enter fast
+            const p2X = cx + 300 * state.scale;
+            const p2Y = cy + 100 * state.scale;
+            const currentP2X = state.w + (p2X - state.w) * enterProgress;
+            
+            drawSpikyShape(currentP2X, p2Y, 60 * state.scale, 6, CONFIG.colors.danger, t * 2);
+
+            // Dialogue 1: Normal
+            if (p > 0.3) {
+                const pop = ease.outElastic(Math.min(1, (p - 0.3) * 3));
+                const bubbleW = 280 * state.scale * pop;
+                const bubbleH = 80 * state.scale * pop;
+                if (pop > 0.1) {
+                    drawBubble("今天天气真好", p1X, p1Y - 150 * state.scale, bubbleW, bubbleH, true);
+                }
+            }
+        }
+    },
+    {
+        duration: 8,
+        name: "Scenario_Attack",
+        subCN: "“你说天气好，就是歧视干旱地区的农民！”",
+        subEN: "'You say nice weather? You are discriminating against farmers needing rain!'",
+        render: (t, p) => {
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+            
+            const p1X = cx - 300 * state.scale;
+            const p1Y = cy + 100 * state.scale;
+            const p2X = cx + 300 * state.scale;
+            const p2Y = cy + 100 * state.scale;
+
+            // Characters
+            drawCircle(p1X, p1Y, 60 * state.scale, CONFIG.colors.primary);
+            // Troll vibrates
+            const shake = Math.sin(t * 50) * 5 * state.scale;
+            drawSpikyShape(p2X + shake, p2Y, 60 * state.scale, 6, CONFIG.colors.danger, t * 2);
+
+            // Attack Lines
+            const attackP = ease.outQuint(Math.min(1, p * 4));
+            if (attackP > 0) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.strokeStyle = CONFIG.colors.danger;
+                ctx.lineWidth = 3 * state.scale;
+                ctx.setLineDash([10, 10]);
+                ctx.moveTo(p2X - 80 * state.scale, p2Y - 50 * state.scale);
+                ctx.lineTo(p1X + 80 * state.scale, p1Y - 50 * state.scale);
+                ctx.stroke();
+                ctx.restore();
+
+                // Big scary bubble
+                const bubbleW = 400 * state.scale * attackP;
+                const bubbleH = 100 * state.scale * attackP;
+                drawBubble("不考虑干旱地区吗？", p2X, p2Y - 180 * state.scale, bubbleW, bubbleH, false);
+            }
+
+            // Sweat drop on normal person
+            if (p > 0.5) {
+                ctx.fillStyle = "#38BDF8";
+                ctx.beginPath();
+                ctx.arc(p1X + 50*state.scale, p1Y - 50*state.scale, 10*state.scale, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    },
+    {
+        duration: 8,
+        name: "Logic_Graph",
+        subCN: "他们的逻辑核心是：偷换概念 + 诉诸情绪。",
+        subEN: "Core logic: Moving the goalposts + Emotional appeal.",
+        render: (t, p) => {
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+
+            // Background Grid
+            ctx.strokeStyle = "#E2E8F0";
+            ctx.lineWidth = 1;
+            const gridSize = 50 * state.scale;
+            for(let i=0; i<state.w; i+=gridSize) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, state.h); ctx.stroke();
+            }
+
+            // Goalpost Moving Animation
+            const goalX = cx + (Math.sin(t * 3) * 200 * state.scale);
+            
+            // Draw Goal
+            ctx.strokeStyle = CONFIG.colors.text;
+            ctx.lineWidth = 4 * state.scale;
+            ctx.strokeRect(goalX - 50*state.scale, cy - 100*state.scale, 100*state.scale, 200*state.scale);
+            
+            // Label
+            drawText("讨论标准", goalX, cy - 130*state.scale, 24, CONFIG.colors.subText);
+
+            // Ball (Argument) trying to enter
+            const ballX = cx - 300 * state.scale + (t * 100 * state.scale) % 600;
+            drawCircle(cx, cy, 20 * state.scale, CONFIG.colors.primary);
+            
+            drawText("偷换概念", cx, cy + 150 * state.scale, 60, CONFIG.colors.danger);
+            drawText("Moving Goalposts", cx, cy + 200 * state.scale, 30, CONFIG.colors.danger, 'center', 'sub');
+        }
+    },
+    {
+        duration: 7,
+        name: "Solution",
+        subCN: "遇到杠精怎么办？不要争辩，直接远离。",
+        subEN: "How to deal with them? Do not engage. Just walk away.",
+        render: (t, p) => {
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+
+            const p1X = cx - 100 * state.scale;
+            const p2X = cx + 200 * state.scale;
+
+            // Troll screaming
+            const scaleTroll = 1 - (p * 0.8); // Shrinking
+            drawSpikyShape(p2X, cy, 60 * state.scale * scaleTroll, 8, CONFIG.colors.danger, t * 10);
+
+            // Normal person walking away
+            const walkX = p1X - (p * 500 * state.scale);
+            const bounce = Math.abs(Math.sin(t * 10)) * 20 * state.scale;
+            drawCircle(walkX, cy - bounce, 60 * state.scale, CONFIG.colors.primary);
+
+            // Shield/Block icon
+            if (p > 0.2) {
+                ctx.globalAlpha = Math.min(1, (p-0.2)*2);
+                drawText("🚫", cx + 100 * state.scale, cy - 100 * state.scale, 100, "#000");
+                ctx.globalAlpha = 1;
+            }
+        }
+    },
+    {
+        duration: 6,
+        name: "Outro",
+        subCN: "珍惜时间，远离杠精。",
+        subEN: "Value your time. Stay away from Contrarians.",
+        render: (t, p) => {
+            const cx = state.w / 2;
+            const cy = state.h / 2;
+
+            drawText("Peace & Love", cx, cy, 80, CONFIG.colors.primary);
+            
+            // Gentle particles
+            for(let i=0; i<10; i++) {
+                const px = cx + Math.sin(i + t) * 300 * state.scale;
+                const py = cy + Math.cos(i * 2 + t) * 200 * state.scale;
+                drawCircle(px, py, 5 * state.scale, CONFIG.colors.accent, 0.6);
+            }
+        }
+    }
+];
+
+// --- ENGINE LOOP ---
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    state.w = canvas.width;
+    state.h = canvas.height;
+    // Calculate scale based on reference width (2k-ish)
+    state.scale = Math.min(state.w / CONFIG.refWidth, state.h / CONFIG.refHeight) * 1.2; // Slightly larger
+}
+
+function loop(timestamp) {
+    if (!state.startTime) state.startTime = timestamp;
+    const totalTime = (timestamp - state.startTime) / 1000;
+    state.time = totalTime;
+
+    // Clear
+    ctx.fillStyle = CONFIG.colors.bg;
+    ctx.fillRect(0, 0, state.w, state.h);
+
+    // Determine Scene
+    let accumulatedTime = 0;
+    let currentScene = null;
+    let sceneLocalTime = 0;
+
+    for (let scene of SCENES) {
+        if (totalTime < accumulatedTime + scene.duration) {
+            currentScene = scene;
+            sceneLocalTime = totalTime - accumulatedTime;
+            break;
+        }
+        accumulatedTime += scene.duration;
+    }
+
+    // Loop back to start if finished
+    if (!currentScene) {
+        state.startTime = timestamp; // Reset
+        currentScene = SCENES[0];
+        sceneLocalTime = 0;
+    }
+
+    const progress = sceneLocalTime / currentScene.duration;
+
+    // Render Scene
+    ctx.save();
+    currentScene.render(sceneLocalTime, progress);
+    ctx.restore();
+
+    // Render Subtitles (Overlay)
+    drawSubtitles(currentScene.subCN, currentScene.subEN, progress);
+
+    // Progress Bar (Top)
+    ctx.fillStyle = CONFIG.colors.primary;
+    const totalDuration = SCENES.reduce((acc, s) => acc + s.duration, 0);
+    const totalProgress = (totalTime % totalDuration) / totalDuration;
+    ctx.fillRect(0, 0, state.w * totalProgress, 6 * state.scale);
+
+    requestAnimationFrame(loop);
+}
+
+// --- INITIALIZATION ---
+
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(loop);
+
+// Hide loader
+setTimeout(() => {
+    loader.style.opacity = 0;
+    setTimeout(() => loader.remove(), 1000);
+}, 500);
+
+</script>
+</body>
+</html>
